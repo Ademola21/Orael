@@ -11,6 +11,7 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="styles.css" />
 <link rel="stylesheet" href="styles2.css" />
+<link rel="stylesheet" href="styles3.css" />
 </head>
 <body>
 <div class="field"></div>
@@ -218,10 +219,31 @@
 
       <!-- Offers pane -->
       <div data-pane="offers" hidden>
-        <div class="eyebrow">Offerwall · high reward</div>
+        <div class="sec-head">
+          <div class="sh-title"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3s2 3 2 6a2 2 0 0 1-4 0c0-1-1-2-1-2S7 9 7 12a5 5 0 0 0 10 0c0-4-5-9-5-9z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Featured offers</div>
+          <span class="sh-all">View all</span>
+        </div>
+        <div class="hscroll" id="featuredOffers"></div>
+
+        <div class="sec-head">
+          <div class="sh-title"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9-9a4.5 4.5 0 0 1 9-2 4.5 4.5 0 0 1 9 2c-2 4.5-9 9-9 9z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Offer partners</div>
+        </div>
+        <div class="hscroll" id="offerPartners"></div>
+
+        <div class="eyebrow">All offers</div>
+        <div class="filters" id="offerFilters">
+          <div class="fpill on" data-f="all">All</div>
+          <div class="fpill" data-f="game">Games</div>
+          <div class="fpill" data-f="finance">Finance</div>
+          <div class="fpill" data-f="shop">Shopping</div>
+        </div>
         <div class="list" id="offerList"></div>
+
         <div class="eyebrow">Paid surveys</div>
         <div class="list" id="surveyList"></div>
+
+        <div class="live-head"><span class="live-dot"></span><span class="live-title">Just completed</span></div>
+        <div class="live-feed" id="liveFeed"></div>
         <p class="hint" style="margin-bottom:0">Complete an offer or survey, the network pays Orael, you keep most of it. Biggest earner here.</p>
       </div>
 
