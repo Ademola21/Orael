@@ -1,317 +1,504 @@
 /* ========================================================================
-   ORAEL — Telegram Mini App logic
-   Live mining simulation with localStorage persistence + simulated
-   Adsgram rewarded-ad flow. Swap the `playAd()` stub for the real
-   Adsgram SDK call in production (see README).
+   ORAEL — Telegram Mini App logic (full feature set)
+   Live simulation + localStorage. Swap playAd() / ad + Stars stubs for the
+   real Adsgram SDK and Telegram Stars invoices in production (see README).
    ======================================================================== */
 
 const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); } catch (e) {}
 
-/* ---- Economy constants (from the business model) ---- */
-const RATE_BASE = 2.5;            // ORL per hour
-const SESSION_MS = 3 * 60 * 60 * 1000;  // 3 hours of fuel
-const ORL_TO_NGN = 0.15;          // 1 ORL ≈ ₦0.15
-const ARC_LEN = 395.8;            // 270° arc length for r=84
-const AD_RING = 276.46;           // 2πr for r=44
+/* ---- Economy constants ---- */
+const SESSION_MS = 3 * 60 * 60 * 1000;
+const ORL_TO_NGN = 0.15;
+const ARC_LEN = 395.8, AD_RING = 276.46;
+const RIGS = [
+  { name: "Rig I",   rate: 2.5,  cost: 0 },
+  { name: "Rig II",  rate: 4.0,  cost: 5000 },
+  { name: "Rig III", rate: 6.5,  cost: 15000 },
+  { name: "Rig IV",  rate: 10.0, cost: 40000 },
+  { name: "Rig V",   rate: 16.0, cost: 100000 },
+];
+const FAUCET_COOLDOWN = 60 * 60 * 1000;   // 1h
+const FAUCET_REWARD = 60;
+const LOTTO_TICKET_ORL = 500;
+const CHEST_GOAL = 5;
+const WHEEL_PRIZES = [100, 50, 250, 0, 150, 75, 500, 25]; // 8 segments
+const WHEEL_WEIGHTS = [16, 22, 6, 14, 12, 18, 2, 10];
 
 /* ---- State ---- */
 const now = () => Date.now();
+const todayKey = () => new Date().toISOString().slice(0, 10);
 const DEFAULT = {
   balance: 12480.5,
-  miningStart: now(),            // when current fuel tank started
-  boostUntil: 0,                 // boost active until ts
-  streakDay: 3,                  // 1-indexed day claimed
-  lastClaim: 0,
-  tasks: { t1: false, t2: false, t3: false, t4: false },
+  miningStart: now(),
+  boostUntil: 0,
+  rigLevel: 1,
+  pro: 0,                       // pro active until ts
+  streakDay: 3,
+  faucetLast: 0,
+  spinDay: "", spinFreeUsed: false,
+  scratchDay: "", scratchLeft: 3,
+  chest: 0,
+  lottoDay: "", lottoMine: 0,
+  stake: null,                  // { amount, apy, until }
+  tasks: {}, offers: {}, surveys: {}, featured: {},
+  ref: { count: 14, earned: 8420, active: 9 },
   history: [
     { t: "Mining payout", a: "+1,250 ORL", k: "pos", d: "Today" },
     { t: "Referral bonus · @kemi", a: "+820 ORL", k: "pos", d: "Yesterday" },
     { t: "Withdrawal · Bank", a: "-50,000 ORL", k: "neg", d: "Jun 9" },
   ],
 };
-
 let S = load();
 function load() {
-  try {
-    const raw = JSON.parse(localStorage.getItem("orael_v1"));
-    return raw ? { ...DEFAULT, ...raw } : { ...DEFAULT };
-  } catch (e) { return { ...DEFAULT }; }
+  try { const r = JSON.parse(localStorage.getItem("orael_v2")); return r ? { ...DEFAULT, ...r } : { ...DEFAULT }; }
+  catch (e) { return { ...DEFAULT }; }
 }
-function save() { localStorage.setItem("orael_v1", JSON.stringify(S)); }
+function save() { localStorage.setItem("orael_v2", JSON.stringify(S)); }
 
-/* ---- Derived mining math ---- */
-function fuelMsLeft() { return Math.max(0, SESSION_MS - (now() - S.miningStart)); }
-function energyPct() { return (fuelMsLeft() / SESSION_MS) * 100; }
-function isBoosted() { return now() < S.boostUntil; }
-function multiplier() { return isBoosted() ? 2 : 1; }
-function ratePerHr() { return RATE_BASE * multiplier(); }
-function isMining() { return fuelMsLeft() > 0; }
+/* daily resets */
+function rollDay() {
+  const t = todayKey();
+  if (S.spinDay !== t) { S.spinDay = t; S.spinFreeUsed = false; }
+  if (S.scratchDay !== t) { S.scratchDay = t; S.scratchLeft = isPro() ? 6 : 3; }
+  if (S.lottoDay !== t) { S.lottoDay = t; S.lottoMine = 0; }
+}
 
-// ORL accrued in the *current* tank that hasn't been banked yet
+/* ---- Derived ---- */
+const isPro = () => now() < S.pro;
+const fuelMsLeft = () => Math.max(0, SESSION_MS - (now() - S.miningStart));
+const energyPct = () => (fuelMsLeft() / SESSION_MS) * 100;
+const isBoosted = () => now() < S.boostUntil;
+const baseRate = () => RIGS[S.rigLevel].rate * (isPro() ? 2 : 1);
+const ratePerHr = () => baseRate() * (isBoosted() ? 2 : 1);
+const isMining = () => fuelMsLeft() > 0;
+const totalMult = () => (isPro() ? 2 : 1) * (isBoosted() ? 2 : 1);
+
 let bankedStart = S.miningStart;
-function accrueToBalance() {
-  const elapsedMs = Math.min(now(), S.miningStart + SESSION_MS) - bankedStart;
-  if (elapsedMs <= 0) return;
-  const hrs = elapsedMs / 3600000;
-  S.balance += hrs * ratePerHr();
-  bankedStart = Math.min(now(), S.miningStart + SESSION_MS);
+function accrue() {
+  const end = Math.min(now(), S.miningStart + SESSION_MS);
+  const ms = end - bankedStart;
+  if (ms > 0) { S.balance += (ms / 3600000) * ratePerHr(); bankedStart = end; }
 }
 
-/* ---- Formatting ---- */
+/* ---- Format ---- */
 const fmt = (n, d = 2) => n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 const fmtInt = (n) => Math.floor(n).toLocaleString("en-US");
 const naira = (orl) => "₦" + fmt(orl * ORL_TO_NGN, 2);
-function hms(ms) {
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
-/* ---- DOM refs ---- */
+function hms(ms) { const s = Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), x=s%60; return `${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}`; }
 const $ = (id) => document.getElementById(id);
-const els = {
-  balance: $("balance"), balanceFiat: $("balanceFiat"),
-  ratePill: $("ratePill"), rateText: $("rateText"),
-  sessionEarned: $("sessionEarned"),
-  gaugeArc: $("gaugeArc"), energyNum: $("energyNum"),
-  engineStatus: $("engineStatus"),
-  timeLeft: $("timeLeft"), hashrate: $("hashrate"), boostState: $("boostState"),
-  refuelBtn: $("refuelBtn"), boostBtn: $("boostBtn"),
-  wBalance: $("wBalance"), wFiat: $("wFiat"), wProgress: $("wProgress"),
-  wProgLabel: $("wProgLabel"), withdrawBtn: $("withdrawBtn"),
-  historyList: $("historyList"), taskList: $("taskList"), streakStrip: $("streakStrip"),
-};
 
-let selectedMin = 50000;
-
-/* ====================== RENDER ====================== */
+/* ========================================================================
+   RENDER (core)
+   ======================================================================== */
+let selectedMin = 50000, selectedName = "Bank (NGN)";
 function render() {
-  accrueToBalance();
-  const e = energyPct();
-  const mining = isMining();
+  rollDay(); accrue();
+  const e = energyPct(), mining = isMining();
+  document.body.classList.toggle("is-pro", isPro());
 
-  // balance
-  els.balance.textContent = fmt(S.balance);
-  els.balanceFiat.textContent = naira(S.balance);
+  $("balance").textContent = fmt(S.balance);
+  $("balanceFiat").textContent = naira(S.balance);
+  $("gaugeArc").style.strokeDashoffset = (ARC_LEN * (1 - e/100)).toFixed(1);
+  $("energyNum").textContent = Math.round(e);
+  $("rateText").textContent = `+${fmt(ratePerHr(),1)} / hr`;
 
-  // gauge
-  els.gaugeArc.style.strokeDashoffset = (ARC_LEN * (1 - e / 100)).toFixed(1);
-  els.energyNum.textContent = Math.round(e);
+  const rp = $("ratePill"), st = $("engineStatus");
+  if (mining) { rp.classList.remove("idle"); st.classList.remove("empty");
+    st.textContent = isBoosted() ? "Boosted · 2× speed" : (isPro() ? "Pro mining" : "Mining active"); }
+  else { rp.classList.add("idle"); st.classList.add("empty"); st.textContent = "Out of fuel"; }
 
-  // rate pill + engine status
-  els.rateText.textContent = `+${fmt(ratePerHr(), 1)} / hr`;
-  if (mining) {
-    els.ratePill.classList.remove("idle");
-    els.engineStatus.textContent = isBoosted() ? "Boosted · 2× speed" : "Mining active";
-    els.engineStatus.classList.remove("empty");
-  } else {
-    els.ratePill.classList.add("idle");
-    els.engineStatus.textContent = "Out of fuel";
-    els.engineStatus.classList.add("empty");
-  }
+  $("timeLeft").textContent = hms(fuelMsLeft());
+  $("hashrate").textContent = fmt(ratePerHr(),1);
+  $("boostState").textContent = totalMult().toFixed(1) + "×";
+  const tankMs = Math.min(now(), S.miningStart + SESSION_MS) - S.miningStart;
+  $("sessionEarned").textContent = fmt((tankMs/3600000)*ratePerHr(),4) + " ORL mined";
 
-  // stats
-  els.timeLeft.textContent = hms(fuelMsLeft());
-  els.hashrate.textContent = fmt(ratePerHr(), 1);
-  els.boostState.textContent = multiplier().toFixed(1) + "×";
+  $("refuelBtn").disabled = e > 95;
+  $("boostBtn").disabled = isBoosted() || !mining;
+  $("boostBtn").querySelector(".btn-stack").firstChild.textContent = isBoosted() ? "2× Boost active" : "Activate 2× Boost";
 
-  // session earned (this tank)
-  const tankElapsed = Math.min(now(), S.miningStart + SESSION_MS) - S.miningStart;
-  els.sessionEarned.textContent = fmt((tankElapsed / 3600000) * ratePerHr(), 4) + " ORL mined";
+  // faucet
+  const fr = now() - S.faucetLast;
+  if (fr >= FAUCET_COOLDOWN) { $("faucetStatus").textContent = "Ready to claim"; $("faucetBtn").disabled = false; $("faucetBtn").textContent = "Claim"; }
+  else { $("faucetStatus").textContent = "Next in " + hms(FAUCET_COOLDOWN - fr); $("faucetBtn").disabled = true; $("faucetBtn").textContent = "Wait"; }
 
-  // refuel button enabled only when low/empty
-  els.refuelBtn.disabled = e > 95;
-  els.boostBtn.disabled = isBoosted() || !mining;
-  els.boostBtn.querySelector(".btn-stack").firstChild.textContent =
-    isBoosted() ? "2× Boost active" : "Activate 2× Boost";
+  // rig
+  renderRig();
 
   // wallet
-  els.wBalance.textContent = fmt(S.balance);
-  els.wFiat.textContent = naira(S.balance).slice(1);
-  const pct = Math.min(100, (S.balance / selectedMin) * 100);
-  els.wProgress.style.width = pct + "%";
-  els.wProgLabel.textContent = `${fmtInt(S.balance)} / ${fmtInt(selectedMin)} ORL`;
-  els.withdrawBtn.disabled = S.balance < selectedMin;
-  els.withdrawBtn.textContent = S.balance < selectedMin
-    ? `Need ${fmtInt(selectedMin - S.balance)} more ORL` : "Withdraw now";
+  $("wBalance").textContent = fmt(S.balance);
+  $("wFiat").textContent = naira(S.balance).slice(1);
+  $("wProgress").style.width = Math.min(100, (S.balance/selectedMin)*100) + "%";
+  $("wProgLabel").textContent = `${fmtInt(S.balance)} / ${fmtInt(selectedMin)} ORL`;
+  const can = S.balance >= selectedMin;
+  $("withdrawBtn").disabled = !can;
+  $("withdrawBtn").textContent = can ? `Withdraw to ${selectedName}` : `Need ${fmtInt(selectedMin - S.balance)} more ORL`;
+  const feePct = isPro() ? 5 : 10;
+  const amt = can ? Math.floor(S.balance) : 0;
+  const fee = Math.floor(amt * feePct/100);
+  $("feePct").textContent = feePct;
+  $("feeAmt").textContent = fmtInt(amt) + " ORL";
+  $("feeVal").textContent = fmtInt(fee) + " ORL";
+  $("feeNet").textContent = naira(amt - fee);
+
+  // spin / scratch / chest / lotto
+  $("spinTag").textContent = S.spinFreeUsed ? "ad to spin" : "1 free today";
+  $("spinBtn").textContent = S.spinFreeUsed ? "Spin again (watch ad)" : "Spin the wheel";
+  $("scratchTag").textContent = `${S.scratchLeft} left today`;
+  $("chestBar").style.width = (S.chest/CHEST_GOAL*100) + "%";
+  $("chestCap").textContent = `${S.chest} / ${CHEST_GOAL} ads watched`;
+  $("lottoMine").textContent = S.lottoMine;
+
+  // referrals
+  $("refCount").textContent = S.ref.count;
+  $("refEarned").textContent = fmtInt(S.ref.earned);
+  $("refActive").textContent = S.ref.active;
+
+  // staking
+  renderStake();
 }
 
-/* ====================== HISTORY / TASKS / STREAK ====================== */
-function renderHistory() {
-  els.historyList.innerHTML = S.history.map(h => `
-    <div class="item">
-      <div class="item-ic">${h.k === "neg" ? icoOut : icoIn}</div>
-      <div class="item-body"><div class="item-title">${h.t}</div><div class="item-sub">${h.d}</div></div>
-      <div class="item-reward ${h.k}">${h.a}</div>
-    </div>`).join("");
+function renderRig() {
+  const r = RIGS[S.rigLevel], next = RIGS[S.rigLevel+1];
+  $("rigName").textContent = r.name;
+  $("rigRate").textContent = fmt(r.rate,1);
+  const meter = $("rigMeter");
+  meter.innerHTML = RIGS.map((_, i) => `<div class="rig-seg ${i <= S.rigLevel ? "on":""}"></div>`).join("");
+  if (next) {
+    $("rigNext").textContent = fmt(next.rate,1);
+    $("rigBtn").textContent = `Upgrade · ${fmtInt(next.cost)} ORL`;
+    $("rigBtn").disabled = S.balance < next.cost;
+  } else {
+    $("rigNext").textContent = "MAX";
+    $("rigBtn").textContent = "Max rig";
+    $("rigBtn").disabled = true;
+  }
 }
+
+function renderStake() {
+  const box = $("stakeActive");
+  if (S.stake && now() < S.stake.until) {
+    box.hidden = false;
+    box.innerHTML = `Staking <b>${fmtInt(S.stake.amount)} ORL</b> at <b>${S.stake.apy}% APY</b> · unlocks in ${hms(S.stake.until-now())}`;
+    $("stakeBtn").textContent = "Staked";
+    $("stakeBtn").disabled = true;
+  } else {
+    if (S.stake && now() >= S.stake.until) { // mature -> pay yield
+      const yield_ = Math.floor(S.stake.amount * S.stake.apy/100);
+      S.balance += S.stake.amount + yield_;
+      addHistory("Staking matured", `+${fmtInt(S.stake.amount+yield_)} ORL`, "pos", "Just now");
+      S.stake = null; save();
+      reward(yield_, "Stake matured", "Your ORL plus yield is back in your balance.");
+    }
+    box.hidden = true;
+    $("stakeBtn").textContent = "Stake 10,000 ORL";
+    $("stakeBtn").disabled = S.balance < 10000;
+  }
+}
+
+/* ========================================================================
+   LISTS: tasks, featured, offers, surveys, history, streak, leaderboard
+   ======================================================================== */
 const icoIn = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14m0 0 5-5m-5 5-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const icoOut = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5m0 0 5 5m-5-5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const icoPlay = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5z" fill="#e0a25b"/></svg>`;
+const icoStar = `<svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.5 5.5 6 .5-4.5 4 1.4 5.9L12 16.8 6.6 18.9 8 13 3.5 9l6-.5L12 3z" fill="#e0a25b"/></svg>`;
+const icoApp = `<svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="4" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/></svg>`;
+const icoSurvey = `<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M9 8h6M9 12h6M9 16h3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`;
+
+function addHistory(t, a, k, d) { S.history.unshift({ t, a, k, d }); S.history = S.history.slice(0, 12); }
+function renderHistory() {
+  $("historyList").innerHTML = S.history.map(h => `
+    <div class="item"><div class="item-ic">${h.k==="neg"?icoOut:icoIn}</div>
+    <div class="item-body"><div class="item-title">${h.t}</div><div class="item-sub">${h.d}</div></div>
+    <div class="item-reward ${h.k}">${h.a}</div></div>`).join("");
+}
 
 const TASKS = [
-  { id: "t1", title: "Watch a sponsored video", sub: "15s · rewarded ad", reward: "+50 ORL" },
-  { id: "t2", title: "Visit partner offer", sub: "Open link · 10s", reward: "+35 ORL" },
-  { id: "t3", title: "Join Orael channel", sub: "Telegram", reward: "+120 ORL" },
-  { id: "t4", title: "Daily quiz", sub: "Answer 1 question", reward: "+40 ORL" },
+  { id:"t1", title:"Watch a sponsored video", sub:"15s · rewarded ad", r:50 },
+  { id:"t2", title:"Visit partner offer", sub:"Open link · 10s", r:35 },
+  { id:"t3", title:"Daily quiz", sub:"Answer 1 question", r:40 },
 ];
+const FEATURED = [
+  { id:"f1", title:"Join TonStation", sub:"Open & start the bot", r:120 },
+  { id:"f2", title:"Follow Orael on X", sub:"Tap follow", r:80 },
+  { id:"f3", title:"Subscribe Orael channel", sub:"Telegram", r:100 },
+];
+const OFFERS = [
+  { id:"o1", title:"Install Monopoly GO", sub:"Reach level 5", r:9000, usd:"$0.90", b:"g" },
+  { id:"o2", title:"Sign up Bybit + KYC", sub:"Verify identity", r:42000, usd:"$4.20", b:"b" },
+  { id:"o3", title:"Try Temu, place order", sub:"First purchase", r:18000, usd:"$1.80", b:"g" },
+  { id:"o4", title:"Install & open TikTok Lite", sub:"Keep 3 days", r:6500, usd:"$0.65", b:"b" },
+];
+const SURVEYS = [
+  { id:"s1", title:"Consumer habits survey", sub:"~4 min · BitLabs", r:5200, usd:"$0.52" },
+  { id:"s2", title:"Mobile gaming poll", sub:"~2 min · CPX", r:2800, usd:"$0.28" },
+  { id:"s3", title:"Shopping preferences", sub:"~6 min · CPX", r:7400, usd:"$0.74" },
+];
+
+function chipFor(done, label) { return `<div class="chip-go">${done ? "Done" : label}</div>`; }
+
 function renderTasks() {
-  els.taskList.innerHTML = TASKS.map(t => {
-    const done = S.tasks[t.id];
-    return `<div class="item ${done ? "done" : ""}" data-task="${t.id}" data-reward="${t.reward}">
+  $("taskList").innerHTML = TASKS.map(t => `
+    <div class="item ${S.tasks[t.id]?"done":""}" data-kind="tasks" data-id="${t.id}" data-r="${t.r}">
       <div class="item-ic">${icoPlay}</div>
       <div class="item-body"><div class="item-title">${t.title}</div><div class="item-sub">${t.sub}</div></div>
-      <div class="chip-go">${done ? "Done" : t.reward}</div>
-    </div>`;
-  }).join("");
-  els.taskList.querySelectorAll("[data-task]").forEach(el => {
+      ${chipFor(S.tasks[t.id], "+"+t.r+" ORL")}</div>`).join("");
+  $("featuredList").innerHTML = FEATURED.map(t => `
+    <div class="item featured ${S.featured[t.id]?"done":""}" data-kind="featured" data-id="${t.id}" data-r="${t.r}">
+      <div class="item-ic">${icoStar}</div>
+      <div class="item-body"><div class="item-title">${t.title}</div><div class="item-sub">${t.sub}</div></div>
+      ${chipFor(S.featured[t.id], "+"+t.r+" ORL")}</div>`).join("");
+  $("offerList").innerHTML = OFFERS.map(o => `
+    <div class="item ${S.offers[o.id]?"done":""}" data-kind="offers" data-id="${o.id}" data-r="${o.r}">
+      <div class="item-ic brand-${o.b}">${icoApp}</div>
+      <div class="item-body"><div class="item-title">${o.title}</div><div class="item-sub">${o.sub}</div></div>
+      <div class="offer-reward"><div class="or-orl">+${fmtInt(o.r)}</div><div class="or-usd">${o.usd} payout</div></div></div>`).join("");
+  $("surveyList").innerHTML = SURVEYS.map(o => `
+    <div class="item ${S.surveys[o.id]?"done":""}" data-kind="surveys" data-id="${o.id}" data-r="${o.r}">
+      <div class="item-ic">${icoSurvey}</div>
+      <div class="item-body"><div class="item-title">${o.title}</div><div class="item-sub">${o.sub}</div></div>
+      <div class="offer-reward"><div class="or-orl">+${fmtInt(o.r)}</div><div class="or-usd">${o.usd} payout</div></div></div>`).join("");
+
+  document.querySelectorAll("[data-kind]").forEach(el => {
     el.addEventListener("click", () => {
-      const id = el.dataset.task;
-      if (S.tasks[id]) return;
-      playAd("Loading offer…", "Reward unlocks when it finishes.", 8, () => {
-        S.tasks[id] = true;
-        const amt = parseInt(el.dataset.reward.replace(/\D/g, ""));
-        S.balance += amt; save(); renderTasks(); render();
-        toast(`Task complete`, `+${amt} ORL`);
+      const { kind, id } = el.dataset; const r = parseInt(el.dataset.r);
+      if (S[kind][id]) return;
+      const label = kind === "surveys" ? "Loading survey…" : kind === "offers" ? "Opening offer…" : "Loading…";
+      playAd(label, "Reward credits when you complete it.", kind === "tasks" ? 10 : 6, () => {
+        S[kind][id] = true; S.balance += r; save(); renderTasks(); render();
+        addHistory(el.querySelector(".item-title").textContent, `+${fmtInt(r)} ORL`, "pos", "Just now");
+        renderHistory();
+        reward(r, "Reward earned", "Nice. Keep stacking ORL.");
       });
     });
   });
 }
-const icoPlay = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5z" fill="#e0a25b"/></svg>`;
 
 function renderStreak() {
-  const amts = [50, 80, 120, 180, 260, 360, 600];
-  els.streakStrip.innerHTML = amts.map((a, i) => {
-    const day = i + 1;
-    const cls = day < S.streakDay ? "claimed" : day === S.streakDay ? "today" : "";
+  const amts = [50,80,120,180,260,360,600];
+  $("streakStrip").innerHTML = amts.map((a,i) => {
+    const day=i+1, cls = day<S.streakDay?"claimed":day===S.streakDay?"today":"";
     return `<div class="day ${cls}"><div>D${day}</div><div class="d-amt">${a}</div></div>`;
   }).join("");
 }
 
-/* ====================== AD FLOW (simulated Adsgram) ====================== */
+function renderLeaderboard() {
+  const names = [["Chidi","2.41M"],["@zainab","2.08M"],["MinerKing","1.77M"],["@tunde","1.42M"],["Blessing","1.20M"],["@ifeoma","980K"],["RigBoss","860K"]];
+  let rows = names.map((n,i)=>`<div class="lb-row"><div class="lb-rank ${i<3?"top":""}">${i+1}</div>
+    <div class="lb-av">${n[0].replace("@","")[0].toUpperCase()}</div>
+    <div class="lb-name">${n[0]}</div><div class="lb-amt">${n[1]} ORL</div></div>`).join("");
+  rows += `<div class="lb-row lb-me"><div class="lb-rank">128</div><div class="lb-av" id="lbAv">A</div>
+    <div class="lb-name">You<small>climb to reach the prize pool</small></div><div class="lb-amt">${fmtInt(S.balance)} ORL</div></div>`;
+  $("leaderboard").innerHTML = rows;
+}
+
+/* ========================================================================
+   WHEEL
+   ======================================================================== */
+function buildWheel() {
+  const svg = $("wheel"); const n = WHEEL_PRIZES.length; const cx=100, cy=100, r=100;
+  let html = "";
+  for (let i=0;i<n;i++) {
+    const a0 = (i*360/n - 90) * Math.PI/180, a1 = ((i+1)*360/n - 90) * Math.PI/180;
+    const x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0), x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1);
+    const fill = i%2===0 ? "#241f1b" : "#2f2722";
+    html += `<path d="M${cx},${cy} L${x0},${y0} A${r},${r} 0 0 1 ${x1},${y1} Z" fill="${fill}" stroke="#3a312a" stroke-width="0.5"/>`;
+    const am = (a0+a1)/2, tx=cx+r*0.66*Math.cos(am), ty=cy+r*0.66*Math.sin(am);
+    const label = WHEEL_PRIZES[i]===0 ? "✕" : WHEEL_PRIZES[i];
+    html += `<text x="${tx}" y="${ty}" fill="#e0a25b" font-size="13" font-family="Space Grotesk" font-weight="700" text-anchor="middle" dominant-baseline="middle" transform="rotate(${(i*360/n)+(360/n/2)} ${tx} ${ty})">${label}</text>`;
+  }
+  svg.innerHTML = html;
+}
+let wheelRot = 0, spinning = false;
+function doSpin() {
+  if (spinning) return;
+  let idx = weightedPick(WHEEL_WEIGHTS);
+  const n = WHEEL_PRIZES.length, seg = 360/n;
+  const target = 360*5 + (360 - (idx*seg + seg/2));
+  wheelRot += target;
+  spinning = true;
+  $("wheel").style.transform = `rotate(${wheelRot}deg)`;
+  setTimeout(() => {
+    spinning = false;
+    const p = WHEEL_PRIZES[idx];
+    if (p > 0) { S.balance += p; save(); addHistory("Lucky spin", `+${p} ORL`, "pos", "Just now"); renderHistory(); reward(p, "Lucky spin!", "Spin again tomorrow for free."); }
+    else { toast("So close", "No win this time"); }
+    render();
+  }, 4700);
+}
+function weightedPick(w) { const tot=w.reduce((a,b)=>a+b,0); let x=Math.random()*tot; for(let i=0;i<w.length;i++){ if(x<w[i]) return i; x-=w[i]; } return 0; }
+
+/* ========================================================================
+   AD FLOW (simulated Adsgram)
+   ======================================================================== */
 let adTimer = null;
 function playAd(title, body, seconds, onReward) {
   haptic("light");
-  const veil = $("adVeil"), ring = $("adRing"), num = $("adNum");
-  $("adTitle").textContent = title;
-  $("adBody").textContent = body;
+  const veil=$("adVeil"), ring=$("adRing"), num=$("adNum");
+  $("adTitle").textContent = title; $("adBody").textContent = body;
   veil.classList.add("show");
-  let left = seconds;
-  num.textContent = left;
-  ring.style.strokeDashoffset = AD_RING;
-  ring.style.transition = "none";
-  // kick transition
-  requestAnimationFrame(() => {
-    ring.style.transition = `stroke-dashoffset ${seconds}s linear`;
-    ring.style.strokeDashoffset = "0";
-  });
+  let left = seconds; num.textContent = left;
+  ring.style.transition = "none"; ring.style.strokeDashoffset = AD_RING;
+  requestAnimationFrame(() => { ring.style.transition = `stroke-dashoffset ${seconds}s linear`; ring.style.strokeDashoffset = "0"; });
   clearInterval(adTimer);
   adTimer = setInterval(() => {
-    left--;
-    num.textContent = Math.max(0, left);
-    if (left <= 0) {
-      clearInterval(adTimer);
-      veil.classList.remove("show");
-      haptic("success");
-      onReward && onReward();
-    }
+    left--; num.textContent = Math.max(0,left);
+    if (left<=0) { clearInterval(adTimer); veil.classList.remove("show"); haptic("success"); onReward && onReward(); }
   }, 1000);
 }
+/* PRODUCTION:
+   const ad = window.Adsgram.init({ blockId: "BLOCK_ID" });
+   ad.show().then(() => onReward()).catch(() => {});  */
 
-/* In production, replace the body of playAd's reward path with Adsgram:
-   const AdController = window.Adsgram.init({ blockId: "YOUR_BLOCK_ID" });
-   AdController.show().then(() => { onReward(); }).catch(() => { ... });
-*/
-
-/* ====================== ACTIONS ====================== */
-els.refuelBtn.addEventListener("click", () => {
-  playAd("Refueling engine…", "Your reward unlocks when the ad finishes.", 15, () => {
-    accrueToBalance();
-    S.miningStart = now();
-    bankedStart = now();
-    save(); render();
-    toast("Engine refueled", "Fuel restored to 100%");
-  });
-});
-
-els.boostBtn.addEventListener("click", () => {
-  if (isBoosted() || !isMining()) return;
-  playAd("Loading boost…", "Double your mining speed for 3 hours.", 15, () => {
-    accrueToBalance();
-    S.boostUntil = now() + SESSION_MS;
-    save(); render();
-    toast("2× Boost active", "Speed doubled for 3 hours");
-  });
-});
-
-els.withdrawBtn.addEventListener("click", () => {
-  if (S.balance < selectedMin) return;
-  const amt = Math.floor(S.balance);
-  S.balance -= amt;
-  S.history.unshift({ t: "Withdrawal requested", a: `-${fmtInt(amt)} ORL`, k: "neg", d: "Just now" });
-  save(); render(); renderHistory();
-  toast("Withdrawal requested", naira(amt) + " on its way");
+/* ========================================================================
+   REWARD MODAL + TOAST + HAPTIC
+   ======================================================================== */
+function reward(amount, title, body) {
+  $("modalTitle").textContent = title;
+  $("modalAmt").textContent = (amount>=0?"+":"") + fmtInt(amount) + " ORL";
+  $("modalBody").textContent = body || "Added to your balance.";
+  $("modalVeil").classList.add("show");
   haptic("success");
-});
+}
+$("modalClose").addEventListener("click", () => $("modalVeil").classList.remove("show"));
 
-document.querySelectorAll(".method").forEach(m => {
-  m.addEventListener("click", () => {
-    document.querySelectorAll(".method").forEach(x => x.classList.remove("sel"));
-    m.classList.add("sel");
-    selectedMin = parseInt(m.dataset.min);
-    render();
-  });
-});
-
-$("copyRef").addEventListener("click", () => {
-  const code = $("refCode").textContent;
-  navigator.clipboard?.writeText(code);
-  toast("Invite link copied", "Share it anywhere");
-});
-
-/* ====================== NAV ====================== */
-document.querySelectorAll(".nav-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    haptic("light");
-    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-    btn.classList.add("active");
-    $("screen-" + btn.dataset.screen).classList.add("active");
-    document.querySelector(".scroll").scrollTo({ top: 0, behavior: "smooth" });
-  });
-});
-
-/* ====================== TOAST ====================== */
 function toast(title, coin) {
-  const wrap = $("toastWrap");
-  const el = document.createElement("div");
-  el.className = "toast";
-  el.innerHTML = `<span>${title}</span>${coin ? `<span class="tcoin">${coin}</span>` : ""}`;
-  wrap.appendChild(el);
-  setTimeout(() => { el.style.opacity = "0"; el.style.transform = "translateY(8px)"; }, 2300);
-  setTimeout(() => el.remove(), 2700);
+  const el = document.createElement("div"); el.className="toast";
+  el.innerHTML = `<span>${title}</span>${coin?`<span class="tcoin">${coin}</span>`:""}`;
+  $("toastWrap").appendChild(el);
+  setTimeout(()=>{el.style.opacity="0";el.style.transform="translateY(8px)";},2300);
+  setTimeout(()=>el.remove(),2700);
 }
+function haptic(type){ try{ const h=tg?.HapticFeedback; if(!h)return; if(type==="success")h.notificationOccurred("success"); else h.impactOccurred(type==="light"?"light":"medium"); }catch(e){} }
 
-/* ====================== HAPTICS ====================== */
-function haptic(type) {
+/* ========================================================================
+   ACTIONS
+   ======================================================================== */
+$("refuelBtn").addEventListener("click", () => {
+  const go = () => { accrue(); S.miningStart=now(); bankedStart=now(); save(); render(); toast("Engine refueled","Fuel at 100%"); };
+  if (isPro()) { go(); return; }   // Pro refuels without ads
+  playAd("Refueling engine…","Reward unlocks when the ad finishes.",15,go);
+});
+$("boostBtn").addEventListener("click", () => {
+  if (isBoosted() || !isMining()) return;
+  playAd("Loading boost…","Double mining speed for 3 hours.",15,()=>{ accrue(); S.boostUntil=now()+SESSION_MS; save(); render(); toast("2× Boost active","Speed doubled for 3h"); });
+});
+$("faucetBtn").addEventListener("click", () => {
+  if (now()-S.faucetLast < FAUCET_COOLDOWN) return;
+  playAd("Claiming bonus…","Your hourly drip is loading.",10,()=>{ S.faucetLast=now(); S.balance+=FAUCET_REWARD; save(); render(); addHistory("Hourly bonus",`+${FAUCET_REWARD} ORL`,"pos","Just now"); renderHistory(); toast("Hourly bonus",`+${FAUCET_REWARD} ORL`); });
+});
+$("rigBtn").addEventListener("click", () => {
+  const next = RIGS[S.rigLevel+1]; if (!next || S.balance < next.cost) return;
+  S.balance -= next.cost; S.rigLevel++; save(); render();
+  addHistory(`Upgraded to ${RIGS[S.rigLevel].name}`, `-${fmtInt(next.cost)} ORL`, "neg", "Just now"); renderHistory();
+  reward(0, `${RIGS[S.rigLevel].name} online`, `Mining at ${fmt(RIGS[S.rigLevel].rate,1)} ORL/hr base.`);
+});
+
+$("spinBtn").addEventListener("click", () => {
+  if (spinning) return;
+  if (!S.spinFreeUsed) { S.spinFreeUsed=true; save(); doSpin(); render(); }
+  else { playAd("Loading spin…","Watch to earn an extra spin.",10,()=>{ doSpin(); }); }
+});
+
+$("scratchBtn").addEventListener("click", () => {
+  if (S.scratchLeft<=0) { toast("No cards left","Come back tomorrow"); return; }
+  playAd("Loading card…","Scratch to reveal your prize.",8,()=>{
+    S.scratchLeft--; const prizes=[20,40,60,100,150,0,250]; const w=[20,20,16,14,10,16,4];
+    const p = prizes[weightedPick(w)];
+    const card=$("scratch"); card.classList.remove("revealed");
+    $("scratchPrize").textContent = p>0 ? "+"+p : "✕";
+    card.onclick = () => {
+      card.classList.add("revealed"); card.onclick=null;
+      if (p>0){ S.balance+=p; addHistory("Scratch win",`+${p} ORL`,"pos","Just now"); renderHistory(); toast("Scratch win!",`+${p} ORL`);} else toast("No luck","Try the next one");
+      save(); render();
+    };
+    save(); render();
+  });
+});
+
+$("chestBtn").addEventListener("click", () => {
+  playAd("Filling chest…","Each ad gets you closer to the loot.",10,()=>{
+    S.chest++;
+    if (S.chest>=CHEST_GOAL){ S.chest=0; const p=300+Math.floor(Math.random()*500); S.balance+=p; addHistory("Mystery chest",`+${p} ORL`,"pos","Just now"); renderHistory(); reward(p,"Chest unlocked!","Big haul. Fill another one?"); }
+    else toast("Chest filling",`${S.chest}/${CHEST_GOAL}`);
+    save(); render();
+  });
+});
+
+$("lottoAdBtn").addEventListener("click", () => {
+  playAd("Loading ticket…","Watch to grab a free entry.",10,()=>{ S.lottoMine++; save(); render(); toast("Ticket added","Good luck tonight"); });
+});
+$("lottoBuyBtn").addEventListener("click", () => {
+  if (S.balance < LOTTO_TICKET_ORL) { toast("Not enough ORL", `Need ${LOTTO_TICKET_ORL}`); return; }
+  S.balance -= LOTTO_TICKET_ORL; S.lottoMine++; save(); render(); toast("Ticket bought","Entry confirmed");
+});
+
+document.querySelectorAll(".method").forEach(m => m.addEventListener("click", () => {
+  document.querySelectorAll(".method").forEach(x=>x.classList.remove("sel"));
+  m.classList.add("sel"); selectedMin=parseInt(m.dataset.min); selectedName=m.dataset.name; render();
+}));
+$("withdrawBtn").addEventListener("click", () => {
+  if (S.balance < selectedMin) return;
+  const amt=Math.floor(S.balance), fee=Math.floor(amt*(isPro()?5:10)/100), net=amt-fee;
+  S.balance-=amt; addHistory(`Withdrawal · ${selectedName}`, `-${fmtInt(amt)} ORL`, "neg", "Just now");
+  save(); render(); renderHistory(); reward(0,"Withdrawal requested", `${naira(net)} to ${selectedName} within 24h.`);
+});
+
+document.querySelectorAll(".stake-opt").forEach(o => o.addEventListener("click", () => {
+  document.querySelectorAll(".stake-opt").forEach(x=>x.classList.remove("sel")); o.classList.add("sel");
+}));
+$("stakeBtn").addEventListener("click", () => {
+  if (S.stake && now()<S.stake.until) return;
+  const amount=10000; if (S.balance<amount){ toast("Need 10,000 ORL","Mine a bit more"); return; }
+  const sel=document.querySelector(".stake-opt.sel"); const days=parseInt(sel.dataset.days), apy=parseInt(sel.dataset.apy);
+  S.balance-=amount; S.stake={ amount, apy, until: now()+days*86400000 };
+  save(); render(); addHistory("Staked ORL", `-${fmtInt(amount)} ORL`, "neg", "Just now"); renderHistory();
+  toast("ORL staked", `${apy}% APY for ${days}d`);
+});
+
+$("proBtn").addEventListener("click", () => {
+  // PRODUCTION: tg.openInvoice(<Stars invoice link from your backend>, cb)
   try {
-    const h = tg?.HapticFeedback;
-    if (!h) return;
-    if (type === "success") h.notificationOccurred("success");
-    else h.impactOccurred(type === "light" ? "light" : "medium");
-  } catch (e) {}
-}
+    if (tg?.showConfirm) {
+      tg.showConfirm("Subscribe to Orael Pro for 250 Telegram Stars / month?", (ok)=>{ if(ok) activatePro(); });
+      return;
+    }
+  } catch(e){}
+  activatePro();
+});
+function activatePro(){ S.pro = now()+30*86400000; save(); render(); reward(0,"Orael Pro active","2× mining, ad-free refuels, half-price withdrawals for 30 days."); }
 
-/* ====================== INIT ====================== */
-(function init() {
+$("copyRef").addEventListener("click", () => { navigator.clipboard?.writeText($("refCode").textContent); toast("Invite link copied","Share it anywhere"); });
+$("shareRef").addEventListener("click", () => {
+  const url=$("refCode").textContent, text="Mine ORL free on Orael ⛏️";
+  try { if (tg) { tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent("https://"+url)}&text=${encodeURIComponent(text)}`); return; } } catch(e){}
+  navigator.clipboard?.writeText("https://"+url); toast("Link copied","Share it with friends");
+});
+
+/* segmented Earn tabs */
+document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll(".seg button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  document.querySelectorAll("[data-pane]").forEach(p=>p.hidden = p.dataset.pane!==b.dataset.seg);
+}));
+
+/* nav */
+document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click", () => {
+  haptic("light");
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  btn.classList.add("active"); $("screen-"+btn.dataset.screen).classList.add("active");
+  document.querySelector(".scroll").scrollTo({ top:0, behavior:"smooth" });
+}));
+
+/* ========================================================================
+   INIT
+   ======================================================================== */
+(function init(){
   const u = tg?.initDataUnsafe?.user;
-  if (u) {
-    $("userAv").textContent = (u.first_name || "A")[0].toUpperCase();
-  }
-  if (tg) {
-    document.documentElement.style.setProperty("--safe-top", (tg.safeAreaInset?.top || 0) + "px");
-    document.documentElement.style.setProperty("--safe-bot", (tg.safeAreaInset?.bottom || 0) + "px");
-  }
-  renderHistory(); renderTasks(); renderStreak(); render();
-  setInterval(() => { save(); render(); }, 1000);
+  if (u) { const i=(u.first_name||"A")[0].toUpperCase(); $("userAv").textContent=i; const lb=$("lbAv"); if(lb)lb.textContent=i; }
+  if (tg) { document.documentElement.style.setProperty("--safe-top",(tg.safeAreaInset?.top||0)+"px"); document.documentElement.style.setProperty("--safe-bot",(tg.safeAreaInset?.bottom||0)+"px"); }
+  buildWheel(); renderHistory(); renderTasks(); renderStreak(); renderLeaderboard(); render();
+  setInterval(()=>{ save(); render(); }, 1000);
 })();
