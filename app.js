@@ -101,12 +101,10 @@ function render() {
   $("balanceFiat").textContent = naira(S.balance);
   $("gaugeArc").style.strokeDashoffset = (ARC_LEN * (1 - e/100)).toFixed(1);
   $("energyNum").textContent = Math.round(e);
-  $("rateText").textContent = `+${fmt(ratePerHr(),1)} / hr`;
-
-  const rp = $("ratePill"), st = $("engineStatus");
-  if (mining) { rp.classList.remove("idle"); st.classList.remove("empty");
+  const st = $("engineStatus");
+  if (mining) { st.classList.remove("empty");
     st.textContent = isBoosted() ? "Boosted · 2× speed" : (isPro() ? "Pro mining" : "Mining active"); }
-  else { rp.classList.add("idle"); st.classList.add("empty"); st.textContent = "Out of fuel"; }
+  else { st.classList.add("empty"); st.textContent = "Out of fuel"; }
 
   $("timeLeft").textContent = hms(fuelMsLeft());
   $("hashrate").textContent = fmt(ratePerHr(),1);
