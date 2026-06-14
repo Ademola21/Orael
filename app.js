@@ -226,11 +226,32 @@ const FEATURED = [
   { id:"f3", title:"Subscribe Orael channel", sub:"Telegram", r:100 },
 ];
 const OFFERS = [
-  { id:"o1", title:"Install Monopoly GO", sub:"Reach level 5", r:9000, usd:"$0.90", b:"g" },
-  { id:"o2", title:"Sign up Bybit + KYC", sub:"Verify identity", r:42000, usd:"$4.20", b:"b" },
-  { id:"o3", title:"Try Temu, place order", sub:"First purchase", r:18000, usd:"$1.80", b:"g" },
-  { id:"o4", title:"Install & open TikTok Lite", sub:"Keep 3 days", r:6500, usd:"$0.65", b:"b" },
+  { id:"o1", title:"Install Monopoly GO", sub:"Reach level 5", r:9000, usd:"$0.90", b:"g", cat:"game" },
+  { id:"o2", title:"Sign up Bybit + KYC", sub:"Verify identity", r:42000, usd:"$4.20", b:"b", cat:"finance" },
+  { id:"o3", title:"Try Temu, place order", sub:"First purchase", r:18000, usd:"$1.80", b:"g", cat:"shop" },
+  { id:"o4", title:"Install & open TikTok Lite", sub:"Keep 3 days", r:6500, usd:"$0.65", b:"b", cat:"game" },
+  { id:"o5", title:"Open a Bitget account", sub:"Deposit + first trade", r:38000, usd:"$3.80", b:"b", cat:"finance" },
+  { id:"o6", title:"Shop on AliExpress", sub:"First order $5+", r:14000, usd:"$1.40", b:"g", cat:"shop" },
 ];
+const FEATURED_OFFERS = [
+  { title:"Cooking Blast", pay:"+34,300", emoji:"🍳", g:"linear-gradient(135deg,#8e6cc4,#4a3270)", plat:"a" },
+  { title:"Rock N Cash Casino", pay:"+841,000", emoji:"🎰", g:"linear-gradient(135deg,#c0392b,#6e1d14)", plat:"a" },
+  { title:"Ball Sort Master", pay:"+5,400", emoji:"🧪", g:"linear-gradient(135deg,#2e7bd6,#173f70)", plat:"a" },
+  { title:"Bingo Frenzy", pay:"+62,000", emoji:"🎯", g:"linear-gradient(135deg,#d98a2b,#854f12)", plat:"a" },
+  { title:"Solitaire Cash", pay:"+128,000", emoji:"🃏", g:"linear-gradient(135deg,#2f9e6e,#185138)", plat:"a" },
+];
+const OFFER_PARTNERS = [
+  { name:"Tyr Treasures", bonus:"+50%", emoji:"💰" },
+  { name:"Prime Earn", bonus:"+55%", emoji:"💎" },
+  { name:"Timewall", bonus:"+40%", emoji:"⏳" },
+  { name:"AdGem", bonus:"+35%", emoji:"🎮" },
+  { name:"BitLabs", bonus:"+45%", emoji:"📊" },
+];
+const LIVE_GAMES = [
+  ["Train Miner: Idle Railway","🚂"],["Block Jam","🧱"],["Bingo Frenzy","🎯"],["Royal Match","👑"],
+  ["Coin Master","🪙"],["Monopoly GO","🎲"],["Solitaire Cash","🃏"],["Travel Town","🏝️"],["Rock N Cash","🎰"],
+];
+const LIVE_USERS = ["@chidi","@zainab","MinerKing","@tunde","Blessing","@ifeoma","RigBoss","@amaka","Daniel","@yusuf"];
 const SURVEYS = [
   { id:"s1", title:"Consumer habits survey", sub:"~4 min · BitLabs", r:5200, usd:"$0.52" },
   { id:"s2", title:"Mobile gaming poll", sub:"~2 min · CPX", r:2800, usd:"$0.28" },
@@ -250,7 +271,8 @@ function renderTasks() {
       <div class="item-ic">${icoStar}</div>
       <div class="item-body"><div class="item-title">${t.title}</div><div class="item-sub">${t.sub}</div></div>
       ${chipFor(S.featured[t.id], "+"+t.r+" ORL")}</div>`).join("");
-  $("offerList").innerHTML = OFFERS.map(o => `
+  const ofs = offerFilter==="all" ? OFFERS : OFFERS.filter(o=>o.cat===offerFilter);
+  $("offerList").innerHTML = ofs.map(o => `
     <div class="item ${S.offers[o.id]?"done":""}" data-kind="offers" data-id="${o.id}" data-r="${o.r}">
       <div class="item-ic brand-${o.b}">${icoApp}</div>
       <div class="item-body"><div class="item-title">${o.title}</div><div class="item-sub">${o.sub}</div></div>
@@ -274,6 +296,46 @@ function renderTasks() {
       });
     });
   });
+}
+
+const icoDroid = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 9h10v7a1 1 0 0 1-1 1h-1v3h-2v-3h-2v3H9v-3H8a1 1 0 0 1-1-1V9zm-2 .5a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0v-5zm12 0a1 1 0 0 1 2 0v5a1 1 0 0 1-2 0v-5zM8 8a4 4 0 0 1 8 0H8z"/></svg>`;
+let offerFilter = "all";
+function renderFeatured() {
+  $("featuredOffers").innerHTML = FEATURED_OFFERS.map(f => `
+    <div class="foffer">
+      <div class="cover" style="background:${f.g}">${f.emoji}${f.plat==="a"?`<span class="plat">${icoDroid}</span>`:""}</div>
+      <div class="meta"><div class="ft">${f.title}</div><div class="fp">${f.pay}</div></div>
+    </div>`).join("");
+}
+function renderPartners() {
+  $("offerPartners").innerHTML = OFFER_PARTNERS.map(p => `
+    <div class="partner"><span class="bonus">${p.bonus}</span>
+      <div class="plogo">${p.emoji}</div><div class="pname">${p.name}</div><div class="pgo">Tap to open</div></div>`).join("");
+}
+function setupOfferFilters() {
+  document.querySelectorAll("#offerFilters .fpill").forEach(p => p.addEventListener("click", () => {
+    document.querySelectorAll("#offerFilters .fpill").forEach(x=>x.classList.remove("on"));
+    p.classList.add("on"); offerFilter = p.dataset.f; renderTasks(); render();
+  }));
+}
+let liveTimer = null;
+function liveRow() {
+  const g = LIVE_GAMES[Math.floor(Math.random()*LIVE_GAMES.length)];
+  const u = LIVE_USERS[Math.floor(Math.random()*LIVE_USERS.length)];
+  const pay = (Math.random()*4+0.05).toFixed(3);
+  const ago = Math.floor(Math.random()*5);
+  return `<div class="live-row"><div class="live-thumb">${g[1]}</div>
+    <div class="live-body"><div class="live-name">${g[0]}</div><div class="live-user">${u}</div></div>
+    <div><div class="live-pay">+$${pay}</div><div class="live-ago">${ago===0?"just now":ago+"m ago"}</div></div></div>`;
+}
+function startLiveFeed() {
+  const feed = $("liveFeed"); if (!feed) return;
+  feed.innerHTML = Array.from({length:5}, liveRow).join("");
+  clearInterval(liveTimer);
+  liveTimer = setInterval(() => {
+    feed.insertAdjacentHTML("afterbegin", liveRow());
+    while (feed.children.length > 6) feed.removeChild(feed.lastChild);
+  }, 3500);
 }
 
 function renderStreak() {
@@ -499,6 +561,6 @@ document.querySelectorAll(".nav-btn").forEach(btn => btn.addEventListener("click
   const u = tg?.initDataUnsafe?.user;
   if (u) { const i=(u.first_name||"A")[0].toUpperCase(); $("userAv").textContent=i; const lb=$("lbAv"); if(lb)lb.textContent=i; }
   if (tg) { document.documentElement.style.setProperty("--safe-top",(tg.safeAreaInset?.top||0)+"px"); document.documentElement.style.setProperty("--safe-bot",(tg.safeAreaInset?.bottom||0)+"px"); }
-  buildWheel(); renderHistory(); renderTasks(); renderStreak(); renderLeaderboard(); render();
+  buildWheel(); renderHistory(); renderTasks(); renderStreak(); renderLeaderboard(); renderFeatured(); renderPartners(); setupOfferFilters(); startLiveFeed(); render();
   setInterval(()=>{ save(); render(); }, 1000);
 })();
