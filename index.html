@@ -10,16 +10,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="styles2.css" />
 </head>
 <body>
 <div class="field"></div>
 
-<!-- SVG defs: shared gradient -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="cuGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#e0a25b" />
-      <stop offset="1" stop-color="#9c5e29" />
+      <stop offset="0" stop-color="#e0a25b" /><stop offset="1" stop-color="#9c5e29" />
     </linearGradient>
   </defs>
 </svg>
@@ -36,18 +35,19 @@
       </svg>
       <div class="brand-name">OR<b>AEL</b></div>
     </div>
-    <div class="user-chip">
-      <div class="av" id="userAv">A</div>
-      <div class="lvl">Tier <b id="userTier">2</b></div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="pro-chip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l5 4 4-7 4 7 5-4-2 12H5L3 7z"/></svg>PRO</span>
+      <div class="user-chip">
+        <div class="av" id="userAv">A</div>
+        <div class="lvl">Tier <b id="userTier">2</b></div>
+      </div>
     </div>
   </header>
 
-  <!-- ===================== SCROLL ===================== -->
   <main class="scroll">
 
     <!-- ============ SCREEN: MINER ============ -->
     <section class="screen active" id="screen-mine">
-
       <div class="card balance-card">
         <div class="balance-top">
           <div>
@@ -63,15 +63,22 @@
         </div>
       </div>
 
+      <!-- Hourly faucet -->
+      <div class="card faucet">
+        <svg class="drop" viewBox="0 0 24 24" fill="none"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" stroke="#e0a25b" stroke-width="1.7" stroke-linejoin="round"/><path d="M9.5 14a2.5 2.5 0 0 0 2.5 2.5" stroke="#e0a25b" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <div class="faucet-body">
+          <div class="ft">Hourly bonus</div>
+          <div class="fs" id="faucetStatus">Ready to claim</div>
+        </div>
+        <button class="faucet-btn" id="faucetBtn">Claim</button>
+      </div>
+
       <!-- Engine gauge -->
       <div class="engine">
         <div class="gauge-wrap">
           <svg class="gauge-svg" viewBox="0 0 200 200">
-            <!-- 270° arc -->
-            <circle class="gauge-arc-bg" cx="100" cy="100" r="84"
-              stroke-dasharray="395.8 527.8" />
-            <circle class="gauge-arc-fg" id="gaugeArc" cx="100" cy="100" r="84"
-              stroke-dasharray="395.8 527.8" stroke-dashoffset="0" />
+            <circle class="gauge-arc-bg" cx="100" cy="100" r="84" stroke-dasharray="395.8 527.8" />
+            <circle class="gauge-arc-fg" id="gaugeArc" cx="100" cy="100" r="84" stroke-dasharray="395.8 527.8" stroke-dashoffset="0" />
           </svg>
           <div class="gauge-center">
             <div class="gauge-energy"><span id="energyNum">100</span><span class="pct">%</span></div>
@@ -91,31 +98,155 @@
         <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke="#1c1109" stroke-width="1.8" stroke-linejoin="round"/></svg>
         <span class="btn-stack">REFUEL ENGINE<small>Watch a short ad · +100% fuel</small></span>
       </button>
-
       <div style="height:11px"></div>
-
       <button class="btn btn-ghost" id="boostBtn">
         <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 0 3-3m-3 3L9 6M5 13l-2 8 9-5 9 5-2-8" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span class="btn-stack">Activate 2× Boost<small>Watch an ad · double speed for 3 hrs</small></span>
       </button>
 
-      <p class="hint">Fuel drains as the engine mines. When it hits 0%, refuel with a single ad to keep ORL flowing.</p>
+      <!-- Mining rig upgrade -->
+      <div style="height:18px"></div>
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 9V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3M8 13h.01M12 13h.01M16 13h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Mining rig</div>
+          <span class="tag cu" id="rigName">Rig II</span>
+        </div>
+        <div class="rig-meter" id="rigMeter"></div>
+        <div class="rig-row">
+          <div class="rig-now">Base rate <b id="rigRate">2.5</b> ORL/hr · next <b id="rigNext">4.0</b></div>
+          <button class="faucet-btn" id="rigBtn">Upgrade</button>
+        </div>
+      </div>
+
+      <p class="hint">Fuel drains as the engine mines. Refuel with one ad to keep ORL flowing. Upgrade your rig to mine faster.</p>
+    </section>
+
+    <!-- ============ SCREEN: PLAY ============ -->
+    <section class="screen" id="screen-play">
+
+      <!-- Lucky spin -->
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 12 7 7m5 5 5-5m-5 5v7" stroke="currentColor" stroke-width="1.5"/></svg>Lucky spin</div>
+          <span class="tag free" id="spinTag">1 free today</span>
+        </div>
+        <div class="wheel-wrap">
+          <div class="wheel-stage">
+            <div class="wheel-pointer"></div>
+            <svg class="wheel" id="wheel" viewBox="0 0 200 200"></svg>
+            <div class="wheel-hub">SPIN</div>
+          </div>
+          <button class="btn btn-primary" id="spinBtn">Spin the wheel</button>
+        </div>
+        <p class="hint" style="margin-bottom:0">Free daily spin. Extra spins cost one ad each.</p>
+      </div>
+
+      <!-- Scratch card -->
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 14c2-3 4-3 6 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Scratch &amp; win</div>
+          <span class="tag cu" id="scratchTag">3 left today</span>
+        </div>
+        <div class="scratch" id="scratch">
+          <div class="prize" id="scratchPrize">+0</div>
+          <div class="cover" id="scratchCover">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M4 12c4-6 12-6 16 0-4 6-12 6-16 0z" stroke="#e0a25b" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" stroke="#e0a25b" stroke-width="1.6"/></svg>
+            <span>Watch an ad to scratch</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost" id="scratchBtn">Get a scratch card</button>
+      </div>
+
+      <!-- Mystery chest -->
+      <div class="feat chest">
+        <div class="feat-head"><div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="1.7"/><path d="M4 9l2-4h12l2 4M12 9v11M9 9V7h6v2" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Mystery chest</div></div>
+        <svg class="chest-ico" viewBox="0 0 24 24" fill="none"><path d="M4 9h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9z" stroke="currentColor" stroke-width="1.5"/><path d="M4 9l2-4h12l2 4M12 9v11" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="14" r="1.4" fill="currentColor"/></svg>
+        <div class="chest-bar"><i id="chestBar" style="width:0%"></i></div>
+        <div class="chest-cap" id="chestCap">0 / 5 ads watched</div>
+        <button class="btn btn-primary" id="chestBtn">Watch ad to fill chest</button>
+      </div>
+
+      <!-- Daily lottery -->
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><path d="M4 8a2 2 0 0 0 0 8v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2a2 2 0 0 0 0-8V6a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v2z" stroke="currentColor" stroke-width="1.6"/><path d="M12 5v14" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 3"/></svg>Daily draw</div>
+          <span class="feat-meta" id="lottoTimer">closes 23:59</span>
+        </div>
+        <div class="lotto-pool">
+          <div class="lp-amt" id="lottoPool">182,400 ORL</div>
+          <div class="lp-lab">Tonight's prize pool</div>
+        </div>
+        <div class="lotto-info">
+          <span>Your tickets: <b id="lottoMine">0</b></span>
+          <span>Players: <b id="lottoPlayers">1,284</b></span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="lottoAdBtn">Free ticket<small>watch ad</small></button>
+          <button class="btn btn-primary" id="lottoBuyBtn">Buy ticket<small>500 ORL</small></button>
+        </div>
+      </div>
+
+      <!-- Leaderboard -->
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M6 4h12v4a6 6 0 0 1-12 0V4zM6 6H4v2a3 3 0 0 0 2 2.8M18 6h2v2a3 3 0 0 1-2 2.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Weekly leaders</div>
+          <span class="tag cu">Pool 1.2M ORL</span>
+        </div>
+        <div id="leaderboard"></div>
+        <p class="hint" style="margin-bottom:0">Top 20 miners split the weekly pool every Sunday.</p>
+      </div>
     </section>
 
     <!-- ============ SCREEN: EARN ============ -->
     <section class="screen" id="screen-earn">
-      <div class="eyebrow">Daily streak</div>
-      <div class="streak" id="streakStrip"></div>
-
-      <div class="eyebrow">Watch &amp; earn</div>
-      <div class="list" id="taskList"></div>
-
-      <div class="eyebrow">Invite friends</div>
-      <div class="referral">
-        <code id="refCode">t.me/OraelBot?start=A4F92K</code>
-        <button id="copyRef">Copy</button>
+      <div class="seg">
+        <button class="on" data-seg="tasks">Tasks</button>
+        <button data-seg="offers">Offers</button>
+        <button data-seg="invite">Invite</button>
       </div>
-      <p class="hint">Earn 10% of everything your friends mine, forever. Paid in ORL, straight to your balance.</p>
+
+      <!-- Tasks pane -->
+      <div data-pane="tasks">
+        <div class="eyebrow">Daily streak</div>
+        <div class="streak" id="streakStrip"></div>
+        <div class="eyebrow">Watch &amp; earn</div>
+        <div class="list" id="taskList"></div>
+        <div class="eyebrow">Featured partners</div>
+        <div class="list" id="featuredList"></div>
+        <p class="hint" style="margin-bottom:0">Sponsored slots. Projects pay to appear here, so payouts cost Orael nothing.</p>
+      </div>
+
+      <!-- Offers pane -->
+      <div data-pane="offers" hidden>
+        <div class="eyebrow">Offerwall · high reward</div>
+        <div class="list" id="offerList"></div>
+        <div class="eyebrow">Paid surveys</div>
+        <div class="list" id="surveyList"></div>
+        <p class="hint" style="margin-bottom:0">Complete an offer or survey, the network pays Orael, you keep most of it. Biggest earner here.</p>
+      </div>
+
+      <!-- Invite pane -->
+      <div data-pane="invite" hidden>
+        <div class="eyebrow">Your referral earnings</div>
+        <div class="ref-stats">
+          <div class="ref-stat"><div class="rv" id="refCount">0</div><div class="rl">Invited</div></div>
+          <div class="ref-stat"><div class="rv cu" id="refEarned">0</div><div class="rl">ORL earned</div></div>
+          <div class="ref-stat"><div class="rv" id="refActive">0</div><div class="rl">Active</div></div>
+        </div>
+        <div class="feat" style="padding:14px 16px">
+          <div class="tier-line"><span class="tier-badge">L1</span>Direct invites pay you <b>10%</b> of all they mine</div>
+          <div class="tier-line"><span class="tier-badge">L2</span>Their invites pay you <b>3%</b> too</div>
+        </div>
+        <div class="referral">
+          <code id="refCode">t.me/OraelBot?start=A4F92K</code>
+          <button id="copyRef">Copy</button>
+        </div>
+        <button class="btn btn-primary" id="shareRef">
+          <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M12 3v13m0-13L8 7m4-4 4 4" stroke="#1c1109" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Share invite link
+        </button>
+        <p class="hint" style="margin-bottom:0">Forever commission, paid in ORL straight to your balance.</p>
+      </div>
     </section>
 
     <!-- ============ SCREEN: WALLET ============ -->
@@ -128,31 +259,67 @@
         <div class="progress-cap"><span id="wProgLabel">0 / 50,000 ORL</span><span>Min. withdrawal</span></div>
       </div>
 
+      <!-- Pro Miner -->
+      <div class="feat pro">
+        <div class="pro-head">
+          <svg class="pro-crown" viewBox="0 0 24 24" fill="none"><path d="M3 7l5 4 4-7 4 7 5-4-2 12H5L3 7z" stroke="#e0a25b" stroke-width="1.6" stroke-linejoin="round"/><path d="M5 20h14" stroke="#e0a25b" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <div><div class="ph-t">Orael Pro</div><div class="ph-s">Mine more, watch less</div></div>
+        </div>
+        <ul class="pro-perks">
+          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>2× base mining rate, always on</li>
+          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Refuel without ads</li>
+          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Half-price withdrawals, priority payout</li>
+          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>3 free spins &amp; daily chest</li>
+        </ul>
+        <button class="btn btn-stars" id="proBtn">
+          <svg class="stars-ico" viewBox="0 0 24 24" fill="#1c1109"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7L12 2z"/></svg>
+          Go Pro · 250 Telegram Stars / mo
+        </button>
+      </div>
+
+      <!-- Staking -->
+      <div class="feat">
+        <div class="feat-head">
+          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="7" ry="3" stroke="currentColor" stroke-width="1.6"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" stroke="currentColor" stroke-width="1.6"/></svg>Stake ORL</div>
+          <span class="feat-meta">earn passive yield</span>
+        </div>
+        <div class="stake-active" id="stakeActive" hidden></div>
+        <div class="stake-opts" id="stakeOpts">
+          <div class="stake-opt sel" data-days="7" data-apy="8"><div class="so-apy">8%</div><div class="so-days">7 days</div></div>
+          <div class="stake-opt" data-days="30" data-apy="14"><div class="so-apy">14%</div><div class="so-days">30 days</div></div>
+          <div class="stake-opt" data-days="90" data-apy="25"><div class="so-apy">25%</div><div class="so-days">90 days</div></div>
+        </div>
+        <button class="btn btn-ghost" id="stakeBtn">Stake 10,000 ORL</button>
+        <p class="hint" style="margin-bottom:0">Locking ORL boosts the coin and earns yield. Unlocks after the term.</p>
+      </div>
+
       <div class="eyebrow">Payout method</div>
       <div class="method-grid">
-        <div class="method sel" data-min="50000">
+        <div class="method sel" data-min="50000" data-name="Bank (NGN)">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#e0a25b" stroke-width="1.8"/><path d="M3 10h18" stroke="#e0a25b" stroke-width="1.8"/></svg>
-          <div class="m-name">Bank (NGN)</div>
-          <div class="m-min">Min 50,000 ORL</div>
+          <div class="m-name">Bank (NGN)</div><div class="m-min">Min 50,000 ORL</div>
         </div>
-        <div class="method" data-min="100000">
+        <div class="method" data-min="100000" data-name="USDT">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M7 6h7a3 3 0 0 1 0 6H7m0 0h8a3 3 0 0 1 0 6H7" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <div class="m-name">USDT (TRC20)</div>
-          <div class="m-min">Min 100,000 ORL</div>
+          <div class="m-name">USDT (TRC20)</div><div class="m-min">Min 100,000 ORL</div>
         </div>
-        <div class="method" data-min="30000">
+        <div class="method" data-min="30000" data-name="Airtime">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M5 12a7 7 0 0 1 14 0M5 12a7 7 0 0 0 14 0" stroke="#e0a25b" stroke-width="1.8"/></svg>
-          <div class="m-name">Airtime</div>
-          <div class="m-min">Min 30,000 ORL</div>
+          <div class="m-name">Airtime</div><div class="m-min">Min 30,000 ORL</div>
         </div>
-        <div class="method" data-min="80000">
+        <div class="method" data-min="80000" data-name="Opay">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a25b" stroke-width="1.8"/><path d="M9.5 9.5h3a2 2 0 0 1 0 4h-3v-4zm0 4V16" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <div class="m-name">Opay / Wallet</div>
-          <div class="m-min">Min 80,000 ORL</div>
+          <div class="m-name">Opay / Wallet</div><div class="m-min">Min 80,000 ORL</div>
         </div>
       </div>
 
+      <div class="feat" style="padding:14px 16px" id="feeBox">
+        <div class="fee-row"><span>Withdraw amount</span><b id="feeAmt">0 ORL</b></div>
+        <div class="fee-row"><span>Network fee (<span id="feePct">10</span>%)</span><b id="feeVal">0 ORL</b></div>
+        <div class="fee-row tot"><span>You receive</span><b id="feeNet">₦0.00</b></div>
+      </div>
       <button class="btn btn-primary" id="withdrawBtn" disabled>Withdraw</button>
+      <p class="fee-note" id="feeNote">Pro members pay 5% instead of 10%. Withdrawals process within 24h.</p>
 
       <div style="height:22px"></div>
       <div class="eyebrow">Recent activity</div>
@@ -166,6 +333,10 @@
     <button class="nav-btn active" data-screen="mine">
       <svg viewBox="0 0 24 24" fill="none"><path d="M3 13l4-7 5 3 4-6 5 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13v5a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       <span>Miner</span>
+    </button>
+    <button class="nav-btn" data-screen="play">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M10 9l5 3-5 3V9z" fill="currentColor"/></svg>
+      <span>Play</span>
     </button>
     <button class="nav-btn" data-screen="earn">
       <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -188,6 +359,17 @@
     <h3 id="adTitle">Refueling engine…</h3>
     <p id="adBody">Your reward unlocks when the ad finishes.</p>
     <div class="ad-tag">Sponsored · Adsgram</div>
+  </div>
+</div>
+
+<!-- ===================== REWARD MODAL ===================== -->
+<div class="modal-veil" id="modalVeil">
+  <div class="modal">
+    <svg class="m-burst" id="modalIcon" viewBox="0 0 24 24" fill="none"><path d="M12 2v4m0 12v4M2 12h4m12 0h4M5 5l3 3m8 8l3 3M19 5l-3 3M5 19l3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <h3 id="modalTitle">You won</h3>
+    <div class="m-amt" id="modalAmt">+0 ORL</div>
+    <p id="modalBody">Added to your balance.</p>
+    <button class="btn btn-primary" id="modalClose">Collect</button>
   </div>
 </div>
 
