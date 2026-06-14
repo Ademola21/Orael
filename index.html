@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no" />
+<meta name="theme-color" content="#0b0a09" />
+<title>Orael</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="field"></div>
+
+<!-- SVG defs: shared gradient -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="cuGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e0a25b" />
+      <stop offset="1" stop-color="#9c5e29" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <!-- ===================== TOP BAR ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="18" stroke="url(#cuGrad)" stroke-width="2.2"/>
+        <path d="M20 6 L20 20 L30 26" stroke="#e0a25b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="3.4" fill="#e0a25b"/>
+      </svg>
+      <div class="brand-name">OR<b>AEL</b></div>
+    </div>
+    <div class="user-chip">
+      <div class="av" id="userAv">A</div>
+      <div class="lvl">Tier <b id="userTier">2</b></div>
+    </div>
+  </header>
+
+  <!-- ===================== SCROLL ===================== -->
+  <main class="scroll">
+
+    <!-- ============ SCREEN: MINER ============ -->
+    <section class="screen active" id="screen-mine">
+
+      <div class="card balance-card">
+        <div class="balance-top">
+          <div>
+            <div class="balance-label">Your balance</div>
+            <div class="balance-val"><span id="balance">0.00</span><span class="unit">ORL</span></div>
+            <div class="balance-fiat">≈ <b id="balanceFiat">₦0.00</b></div>
+          </div>
+          <div class="rate-pill" id="ratePill"><span class="dot"></span><span id="rateText">+2.5 / hr</span></div>
+        </div>
+        <div class="ticker">
+          <span class="t-label">This session</span>
+          <span class="t-val" id="sessionEarned">0.0000 ORL mined</span>
+        </div>
+      </div>
+
+      <!-- Engine gauge -->
+      <div class="engine">
+        <div class="gauge-wrap">
+          <svg class="gauge-svg" viewBox="0 0 200 200">
+            <!-- 270° arc -->
+            <circle class="gauge-arc-bg" cx="100" cy="100" r="84"
+              stroke-dasharray="395.8 527.8" />
+            <circle class="gauge-arc-fg" id="gaugeArc" cx="100" cy="100" r="84"
+              stroke-dasharray="395.8 527.8" stroke-dashoffset="0" />
+          </svg>
+          <div class="gauge-center">
+            <div class="gauge-energy"><span id="energyNum">100</span><span class="pct">%</span></div>
+            <div class="gauge-cap">Engine fuel</div>
+            <div class="gauge-status" id="engineStatus">Mining active</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="s-val" id="timeLeft">3:00:00</div><div class="s-lab">Fuel left</div></div>
+        <div class="stat"><div class="s-val cu" id="hashrate">2.5</div><div class="s-lab">ORL / hr</div></div>
+        <div class="stat"><div class="s-val" id="boostState">1.0×</div><div class="s-lab">Multiplier</div></div>
+      </div>
+
+      <button class="btn btn-primary" id="refuelBtn">
+        <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" stroke="#1c1109" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span class="btn-stack">REFUEL ENGINE<small>Watch a short ad · +100% fuel</small></span>
+      </button>
+
+      <div style="height:11px"></div>
+
+      <button class="btn btn-ghost" id="boostBtn">
+        <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 0 3-3m-3 3L9 6M5 13l-2 8 9-5 9 5-2-8" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="btn-stack">Activate 2× Boost<small>Watch an ad · double speed for 3 hrs</small></span>
+      </button>
+
+      <p class="hint">Fuel drains as the engine mines. When it hits 0%, refuel with a single ad to keep ORL flowing.</p>
+    </section>
+
+    <!-- ============ SCREEN: EARN ============ -->
+    <section class="screen" id="screen-earn">
+      <div class="eyebrow">Daily streak</div>
+      <div class="streak" id="streakStrip"></div>
+
+      <div class="eyebrow">Watch &amp; earn</div>
+      <div class="list" id="taskList"></div>
+
+      <div class="eyebrow">Invite friends</div>
+      <div class="referral">
+        <code id="refCode">t.me/OraelBot?start=A4F92K</code>
+        <button id="copyRef">Copy</button>
+      </div>
+      <p class="hint">Earn 10% of everything your friends mine, forever. Paid in ORL, straight to your balance.</p>
+    </section>
+
+    <!-- ============ SCREEN: WALLET ============ -->
+    <section class="screen" id="screen-wallet">
+      <div class="card withdraw-head">
+        <div class="wl">Available to withdraw</div>
+        <div class="wv"><span id="wBalance">0.00</span> ORL</div>
+        <div class="wf">≈ <span id="wFiat">₦0.00</span></div>
+        <div class="progress"><i id="wProgress" style="width:0%"></i></div>
+        <div class="progress-cap"><span id="wProgLabel">0 / 50,000 ORL</span><span>Min. withdrawal</span></div>
+      </div>
+
+      <div class="eyebrow">Payout method</div>
+      <div class="method-grid">
+        <div class="method sel" data-min="50000">
+          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#e0a25b" stroke-width="1.8"/><path d="M3 10h18" stroke="#e0a25b" stroke-width="1.8"/></svg>
+          <div class="m-name">Bank (NGN)</div>
+          <div class="m-min">Min 50,000 ORL</div>
+        </div>
+        <div class="method" data-min="100000">
+          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M7 6h7a3 3 0 0 1 0 6H7m0 0h8a3 3 0 0 1 0 6H7" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <div class="m-name">USDT (TRC20)</div>
+          <div class="m-min">Min 100,000 ORL</div>
+        </div>
+        <div class="method" data-min="30000">
+          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M5 12a7 7 0 0 1 14 0M5 12a7 7 0 0 0 14 0" stroke="#e0a25b" stroke-width="1.8"/></svg>
+          <div class="m-name">Airtime</div>
+          <div class="m-min">Min 30,000 ORL</div>
+        </div>
+        <div class="method" data-min="80000">
+          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a25b" stroke-width="1.8"/><path d="M9.5 9.5h3a2 2 0 0 1 0 4h-3v-4zm0 4V16" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <div class="m-name">Opay / Wallet</div>
+          <div class="m-min">Min 80,000 ORL</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="withdrawBtn" disabled>Withdraw</button>
+
+      <div style="height:22px"></div>
+      <div class="eyebrow">Recent activity</div>
+      <div class="list" id="historyList"></div>
+    </section>
+
+  </main>
+
+  <!-- ===================== BOTTOM NAV ===================== -->
+  <nav class="nav">
+    <button class="nav-btn active" data-screen="mine">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M3 13l4-7 5 3 4-6 5 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 13v5a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>Miner</span>
+    </button>
+    <button class="nav-btn" data-screen="earn">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span>Earn</span>
+    </button>
+    <button class="nav-btn" data-screen="wallet">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M16 12h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3 9h13a2 2 0 0 1 2 2" stroke="currentColor" stroke-width="1.8"/></svg>
+      <span>Wallet</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ===================== AD OVERLAY ===================== -->
+<div class="ad-veil" id="adVeil">
+  <div class="ad-box">
+    <div class="ad-ring">
+      <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="none" stroke="#221f1c" stroke-width="8"/><circle id="adRing" cx="50" cy="50" r="44" fill="none" stroke="url(#cuGrad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="276.5" stroke-dashoffset="276.5"/></svg>
+      <div class="ad-num" id="adNum">15</div>
+    </div>
+    <h3 id="adTitle">Refueling engine…</h3>
+    <p id="adBody">Your reward unlocks when the ad finishes.</p>
+    <div class="ad-tag">Sponsored · Adsgram</div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
