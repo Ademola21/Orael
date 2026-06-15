@@ -8,7 +8,7 @@ import crypto from 'crypto';
 // Load environment variables
 dotenv.config();
 
-import { initDB, checkAndRunDraws } from './db.js';
+import { initDB, checkAndRunDraws, getUser, updateUser, addTransaction } from './db.js';
 import verifyTelegramInitData from './auth.js';
 import { generalLimit, actionLimit } from './middleware/rateLimit.js';
 
@@ -62,7 +62,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Adsgram callback verification endpoint (public)
-app.get('/api/adsgram-callback', (req, res) => {
+app.get('/api/adsgram-callback', async (req, res) => {
   const { blockId, userId, reward, hash, secret } = req.query;
   const configuredSecret = process.env.ADSGRAM_SECRET || 'your_adsgram_secret_here';
 
@@ -71,8 +71,24 @@ app.get('/api/adsgram-callback', (req, res) => {
     if (!userId) {
       return res.status(400).json({ error: 'Missing userId parameter' });
     }
-    console.log(`[Adsgram Callback] Verified reward via secret for user ${userId}`);
-    return res.json({ success: true, message: 'Reward verified successfully via secret' });
+    
+    try {
+      const dbUser = await getUser(userId);
+      if (dbUser) {
+        const rewardAmount = parseInt(reward) || 50; 
+        dbUser.balance += rewardAmount;
+        await addTransaction(dbUser.id, 'ad', rewardAmount, 'Adsgram ad reward');
+        await updateUser(dbUser);
+        console.log(`[Adsgram Callback] Successfully credited ${rewardAmount} ORL to user ${userId} via secret token`);
+      } else {
+        console.warn(`[Adsgram Callback] User ${userId} not found in database`);
+      }
+    } catch (dbErr) {
+      console.error('[Adsgram Callback] Database error:', dbErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    return res.json({ success: true, message: 'Reward verified and credited successfully via secret' });
   }
 
   // 2. Check if verifying via cryptographic hash (placeholder/anti-cheat signature)
@@ -91,8 +107,23 @@ app.get('/api/adsgram-callback', (req, res) => {
       return res.status(403).json({ error: 'Invalid signature' });
     }
 
-    console.log(`[Adsgram Callback] Verified reward via signature for user ${userId}: ${reward}`);
-    return res.json({ success: true, message: 'Reward verified successfully via signature' });
+    try {
+      const dbUser = await getUser(userId);
+      if (dbUser) {
+        const rewardAmount = parseInt(reward) || 50; 
+        dbUser.balance += rewardAmount;
+        await addTransaction(dbUser.id, 'ad', rewardAmount, 'Adsgram ad reward');
+        await updateUser(dbUser);
+        console.log(`[Adsgram Callback] Successfully credited ${rewardAmount} ORL to user ${userId} via signature`);
+      } else {
+        console.warn(`[Adsgram Callback] User ${userId} not found in database`);
+      }
+    } catch (dbErr) {
+      console.error('[Adsgram Callback] Database error:', dbErr);
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    return res.json({ success: true, message: 'Reward verified and credited successfully via signature' });
   }
 
   return res.status(400).json({ error: 'Missing verification credentials (hash or secret)' });

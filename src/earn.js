@@ -237,6 +237,41 @@ function setupReferral() {
 }
 
 /* ========================================================================
+   ADSGRAM TASKS
+   ======================================================================== */
+
+function renderAdsgramTasks() {
+  const container = $('adsgramTaskList');
+  if (!container) return;
+
+  const blockId = import.meta.env.VITE_ADSGRAM_TASK_BLOCK_ID;
+  if (!blockId) {
+    container.innerHTML = `<div style="font-size:12px;color:var(--ink-soft);text-align:center;width:100%">No Adsgram tasks configured.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <adsgram-task 
+      data-block-id="${blockId}" 
+      data-debug="true" 
+      data-debug-console="false" 
+      class="task">
+    </adsgram-task>
+  `;
+
+  setTimeout(() => {
+    const taskEl = container.querySelector('adsgram-task');
+    if (taskEl) {
+      taskEl.addEventListener('reward', async (event) => {
+        console.log('[Adsgram Task] Completed! Detail:', event.detail);
+        haptic('success');
+        toast('Task completed!', 'Reward will be credited shortly.');
+      });
+    }
+  }, 100);
+}
+
+/* ========================================================================
    MAIN SETUP
    ======================================================================== */
 
@@ -248,6 +283,7 @@ export function setupEarn() {
   renderOffers();
   renderFeaturedOffers();
   renderPartners();
+  renderAdsgramTasks();
   renderStreak();
   setupOfferFilters();
   startLiveFeed();
