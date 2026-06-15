@@ -250,10 +250,12 @@ function renderAdsgramTasks() {
     return;
   }
 
+  const isDebug = import.meta.env.DEV ? 'true' : 'false';
+
   container.innerHTML = `
     <adsgram-task 
       data-block-id="${blockId}" 
-      data-debug="true" 
+      data-debug="${isDebug}" 
       data-debug-console="false" 
       class="task">
     </adsgram-task>
@@ -265,7 +267,19 @@ function renderAdsgramTasks() {
       taskEl.addEventListener('reward', async (event) => {
         console.log('[Adsgram Task] Completed! Detail:', event.detail);
         haptic('success');
-        toast('Task completed!', 'Reward will be credited shortly.');
+        toast('Task completed!', 'Updating balance...');
+
+        // Wait 2 seconds for server S2S webhook to complete and credit balance, then sync local state from server
+        setTimeout(async () => {
+          try {
+            const res = await api('/api/user');
+            updateState(res);
+            render();
+            toast('Success!', 'Reward credited to your balance.');
+          } catch (e) {
+            console.error('Failed to sync after ad completion:', e);
+          }
+        }, 2000);
       });
     }
   }, 100);
