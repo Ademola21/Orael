@@ -66,7 +66,7 @@ let S = {
   _screen: 'mine',
   _selectedMethod: { name: 'Bank (NGN)', min: 50000 },
   _offerFilter: 'all',
-  _earnTab: 'tasks',
+  _earnTab: 'offers',
 };
 
 /**
