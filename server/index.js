@@ -262,6 +262,67 @@ app.get('/api/ayet-callback', async (req, res) => {
   return res.json({ success: true, message: 'Reward verified and credited successfully' });
 });
 
+// BitcoTasks callback verification endpoint (public)
+app.get('/api/bitco-callback', async (req, res) => {
+  const { subId, transId, reward, signature } = req.query;
+  const configuredSecret = process.env.BITCO_SECRET || '';
+
+  console.log(`[BitcoTasks Callback] Received request: subId=${subId}, transId=${transId}, reward=${reward}, signature=${signature}`);
+
+  if (!subId || !transId || !reward || !signature) {
+    console.warn('[BitcoTasks Callback] Missing required parameters');
+    return res.status(400).send('error');
+  }
+
+  // 1. Signature Verification (MD5 of subId + transId + reward + secretKey)
+  if (configuredSecret) {
+    // Calculate expected signature using MD5
+    const computedSignature = crypto
+      .createHash('md5')
+      .update(`${subId}${transId}${reward}${configuredSecret}`)
+      .digest('hex');
+
+    if (computedSignature !== signature) {
+      console.warn(`[BitcoTasks Callback] Invalid signature. Calculated: ${computedSignature}, Received: ${signature}`);
+      return res.status(403).send('error');
+    }
+  }
+
+  try {
+    // 2. Prevent duplicate crediting
+    const taskId = `bitco:${transId}`;
+    const existing = getOne('SELECT 1 FROM completed_tasks WHERE task_id = ?', [taskId]);
+    if (existing) {
+      console.log(`[BitcoTasks Callback] Transaction ${transId} already processed. Skipping.`);
+      return res.send('ok');
+    }
+
+    // 3. Find user and credit reward
+    const dbUser = await getUser(subId);
+    if (dbUser) {
+      const rewardAmount = parseFloat(reward) || 0;
+      if (rewardAmount > 0) {
+        dbUser.balance += rewardAmount;
+        await addTransaction(dbUser.id, 'offerwall', rewardAmount, 'Completed BitcoTasks offer');
+        await completeTask(dbUser.id, taskId);
+        await updateUser(dbUser);
+        console.log(`[BitcoTasks Callback] Successfully credited ${rewardAmount} ORL to user ${subId} for transaction ${transId}`);
+      } else {
+        console.warn(`[BitcoTasks Callback] Received invalid reward amount: ${reward}`);
+      }
+    } else {
+      console.warn(`[BitcoTasks Callback] User ${subId} not found in database`);
+      return res.status(404).send('error');
+    }
+  } catch (dbErr) {
+    console.error('[BitcoTasks Callback] Database error:', dbErr);
+    return res.status(500).send('error');
+  }
+
+  // BitcoTasks expects exactly "ok"
+  return res.send('ok');
+});
+
 // Mount Routes (auth is applied as middleware, meaning initData is required)
 app.use('/api/user', verifyTelegramInitData, generalLimit, userRoutes);
 app.use('/api/mining', verifyTelegramInitData, generalLimit, actionLimit, miningRoutes);
