@@ -8,7 +8,7 @@ import crypto from 'crypto';
 // Load environment variables
 dotenv.config();
 
-import { initDB, checkAndRunDraws, getUser, updateUser, addTransaction } from './db.js';
+import { initDB, checkAndRunDraws, getUser, updateUser, addTransaction, getOne, completeTask } from './db.js';
 import verifyTelegramInitData from './auth.js';
 import { generalLimit, actionLimit } from './middleware/rateLimit.js';
 
@@ -127,6 +127,73 @@ app.get('/api/adsgram-callback', async (req, res) => {
   }
 
   return res.status(400).json({ error: 'Missing verification credentials (hash or secret)' });
+});
+
+// Mmwall callback verification endpoint (public)
+app.get('/api/mmwall-callback', async (req, res) => {
+  const { userId, amount, transactionId, offerId, offerName, hash } = req.query;
+  const configuredSecret = process.env.MMWALL_SECRET || '';
+
+  console.log(`[Mmwall Callback] Received request: userId=${userId}, amount=${amount}, transactionId=${transactionId}, hash=${hash}`);
+
+  if (!userId || !amount || !transactionId) {
+    console.warn('[Mmwall Callback] Missing required parameters');
+    return res.status(400).json({ error: 'Missing required parameters (userId, amount, transactionId)' });
+  }
+
+  // 1. Optional Hash Verification (if MMWALL_SECRET is set in .env)
+  if (configuredSecret) {
+    if (!hash) {
+      console.warn('[Mmwall Callback] Missing hash signature when secret is configured');
+      return res.status(401).json({ error: 'Missing hash signature' });
+    }
+
+    // Reconstruct the full absolute URL as called by Mmwall
+    const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
+    const urlWithoutHash = fullUrl.split('&hash=')[0];
+
+    const hmac = crypto.createHmac('sha1', configuredSecret);
+    hmac.update(urlWithoutHash);
+    const calculatedHash = hmac.digest('hex');
+
+    if (calculatedHash !== hash) {
+      console.warn(`[Mmwall Callback] Invalid signature. Computed: ${calculatedHash}, Received: ${hash}`);
+      return res.status(403).json({ error: 'Invalid hash signature' });
+    }
+  }
+
+  try {
+    // 2. Prevent duplicate crediting
+    const taskId = `mmwall:${transactionId}`;
+    const existing = getOne('SELECT 1 FROM completed_tasks WHERE task_id = ?', [taskId]);
+    if (existing) {
+      console.log(`[Mmwall Callback] Transaction ${transactionId} already processed. Skipping.`);
+      return res.json({ success: true, message: 'Transaction already processed' });
+    }
+
+    // 3. Find user and credit reward
+    const dbUser = await getUser(userId);
+    if (dbUser) {
+      const rewardAmount = parseFloat(amount) || 0;
+      if (rewardAmount > 0) {
+        dbUser.balance += rewardAmount;
+        await addTransaction(dbUser.id, 'offerwall', rewardAmount, `Completed Mmwall offer: ${offerName || offerId || 'Reward'}`);
+        await completeTask(dbUser.id, taskId);
+        await updateUser(dbUser);
+        console.log(`[Mmwall Callback] Successfully credited ${rewardAmount} ORL to user ${userId} for transaction ${transactionId}`);
+      } else {
+        console.warn(`[Mmwall Callback] Received invalid reward amount: ${amount}`);
+      }
+    } else {
+      console.warn(`[Mmwall Callback] User ${userId} not found in database`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+  } catch (dbErr) {
+    console.error('[Mmwall Callback] Database error:', dbErr);
+    return res.status(500).json({ error: 'Database error' });
+  }
+
+  return res.json({ success: true, message: 'Reward verified and credited successfully' });
 });
 
 // Mount Routes (auth is applied as middleware, meaning initData is required)
