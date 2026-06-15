@@ -680,5 +680,7 @@ export function render() {
 
   // Referral code
   const refCodeEl = $('refCode');
-  if (refCodeEl && S.refCode) refCodeEl.textContent = S.refCode;
+  if (refCodeEl && S.refCode) {
+    refCodeEl.textContent = `https://t.me/Orael_bot?start=${S.refCode}`;
+  }
 }
