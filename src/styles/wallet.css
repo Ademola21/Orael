@@ -1,0 +1,70 @@
+/* =========================================================================
+   WALLET
+   ========================================================================= */
+.withdraw-head { padding: 22px 20px; text-align: center; margin-bottom: 14px; }
+.withdraw-head .wl { font-size: 12px; color: var(--ink-mute); letter-spacing: 0.04em; }
+.withdraw-head .wv { font-family: var(--font-display); font-weight: 600; font-size: 38px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.withdraw-head .wf { font-size: 13px; color: var(--good); margin-top: 4px; font-weight: 600; }
+.progress {
+  height: 8px; border-radius: 100px; background: var(--bg-inset);
+  margin: 16px 0 8px; overflow: hidden; border: 1px solid var(--line);
+}
+.progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--cu-2), var(--cu-1)); border-radius: 100px; }
+.progress-cap { font-size: 11.5px; color: var(--ink-mute); display: flex; justify-content: space-between; }
+
+.method-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; margin-bottom: 16px; }
+.method {
+  padding: 16px 14px; border-radius: var(--r-md); cursor: pointer;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line); box-shadow: inset 0 1px 0 var(--edge-hi);
+  transition: border-color 0.2s, transform 0.12s;
+}
+.method:active { transform: scale(0.98); }
+.method.sel { border-color: var(--cu-2); box-shadow: inset 0 1px 0 var(--edge-hi), 0 0 0 1px var(--cu-2); }
+.method .m-ic { width: 30px; height: 30px; color: var(--cu-1); margin-bottom: 9px; }
+.method .m-name { font-size: 14px; font-weight: 600; }
+.method .m-min { font-size: 11.5px; color: var(--ink-mute); margin-top: 2px; }
+
+/* =========================================================================
+   STAKING (Wallet)
+   ========================================================================= */
+.stake-opts { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+.stake-opt { padding: 13px 8px; border-radius: var(--r-md); text-align: center; cursor: pointer;
+  background: var(--bg-1); border: 1px solid var(--line); transition: border-color 0.2s; }
+.stake-opt.sel { border-color: var(--cu-2); box-shadow: 0 0 0 1px var(--cu-2); }
+.stake-opt .so-apy { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: var(--good); }
+.stake-opt .so-days { font-size: 11px; color: var(--ink-mute); margin-top: 2px; }
+.stake-active { padding: 13px 15px; border-radius: var(--r-md); background: rgba(111,174,138,0.08); border: 1px solid rgba(111,174,138,0.22); font-size: 13px; color: var(--ink-soft); margin-bottom: 12px; }
+.stake-active b { color: var(--good); }
+
+/* =========================================================================
+   PRO MINER (Wallet) — the one place we allow a richer surface
+   ========================================================================= */
+.pro {
+  border: 1px solid rgba(224,162,91,0.32);
+  background:
+    radial-gradient(120% 80% at 90% -20%, rgba(224,162,91,0.16), transparent 60%),
+    linear-gradient(180deg, var(--bg-2), var(--bg-1));
+}
+.pro-head { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.pro-crown { width: 38px; height: 38px; color: var(--cu-1); }
+.pro-head .ph-t { font-family: var(--font-display); font-weight: 700; font-size: 18px; }
+.pro-head .ph-s { font-size: 12px; color: var(--ink-mute); }
+.pro-perks { list-style: none; margin-bottom: 16px; }
+.pro-perks li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--ink-soft); padding: 6px 0; }
+.pro-perks li svg { width: 17px; height: 17px; color: var(--good); flex-shrink: 0; }
+.btn-stars { background: linear-gradient(180deg, #e0a25b, #c87f3c); }
+.stars-ico { width: 18px; height: 18px; }
+
+/* fee note */
+.fee-note { font-size: 11.5px; color: var(--ink-faint); text-align: center; margin: 8px 4px 0; line-height: 1.5; }
+.fee-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-mute); padding: 6px 2px; }
+.fee-row.tot { color: var(--ink); font-weight: 600; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 10px; }
+.fee-row b { font-family: var(--font-mono); }
+
+/* crown badge in topbar when Pro */
+.pro-chip { display: none; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 100px;
+  background: var(--cu-glow); border: 1px solid rgba(224,162,91,0.3); color: var(--cu-1);
+  font-size: 11px; font-weight: 700; font-family: var(--font-display); }
+.pro-chip svg { width: 13px; height: 13px; }
+body.is-pro .pro-chip { display: inline-flex; }

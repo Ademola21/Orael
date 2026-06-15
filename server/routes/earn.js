@@ -1,0 +1,179 @@
+import { Router } from 'express';
+import {
+  FAUCET_COOLDOWN,
+  FAUCET_REWARD,
+  TASKS,
+  FEATURED_TASKS,
+  STREAK_AMOUNTS,
+} from '../economy.js';
+import {
+  getUser,
+  updateUser,
+  addTransaction,
+  getCompletedTasks,
+  completeTask,
+} from '../db.js';
+import { accrueMinedORL } from '../services/mining.js';
+import { getUserState } from './user.js';
+
+const router = Router();
+
+/* ─── helper ──────────────────────────────────────────────────────── */
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function yesterdayStr() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/* ─── POST /faucet ────────────────────────────────────────────────── */
+
+router.post('/faucet', async (req, res) => {
+  try {
+    const telegramUser = req.user;
+    let user = await getUser(telegramUser.id);
+    await accrueMinedORL(user);
+
+    const now = Date.now();
+    const elapsed = now - (user.faucet_last || 0);
+
+    if (elapsed < FAUCET_COOLDOWN) {
+      const remaining = FAUCET_COOLDOWN - elapsed;
+      return res.status(400).json({
+        error: 'Faucet on cooldown',
+        remaining,
+      });
+    }
+
+    user.balance += FAUCET_REWARD;
+    user.faucet_last = now;
+    await addTransaction(user.id, 'faucet', FAUCET_REWARD, 'Faucet claim');
+    await updateUser(user);
+
+    return res.json({ user: await getUserState(telegramUser.id) });
+  } catch (err) {
+    console.error('POST /faucet error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ─── POST /task ──────────────────────────────────────────────────── */
+
+router.post('/task', async (req, res) => {
+  try {
+    const telegramUser = req.user;
+    const { taskId } = req.body;
+    let user = await getUser(telegramUser.id);
+
+    const completed = await getCompletedTasks(user.id);
+    if (completed.includes(taskId)) {
+      return res.status(400).json({ error: 'Task already completed' });
+    }
+
+    const task =
+      TASKS.find((t) => t.id === taskId) ||
+      FEATURED_TASKS.find((t) => t.id === taskId);
+
+    if (!task) {
+      return res.status(400).json({ error: 'Task not found' });
+    }
+
+    user.balance += task.reward;
+    await completeTask(user.id, taskId);
+    await addTransaction(
+      user.id,
+      'task',
+      task.reward,
+      `Task completed: ${task.id}`,
+    );
+    await updateUser(user);
+
+    return res.json({ user: await getUserState(telegramUser.id) });
+  } catch (err) {
+    console.error('POST /task error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ─── streak helpers ──────────────────────────────────────────────── */
+
+function computeStreak(user) {
+  const today = todayStr();
+  const yesterday = yesterdayStr();
+
+  let streakDay = user.streak_day || 0;
+  let claimed = false;
+
+  if (user.streak_last_date === today) {
+    // Already claimed today
+    claimed = true;
+  } else if (user.streak_last_date === yesterday) {
+    // Consecutive day — advance streak (wrap at 7)
+    streakDay = streakDay >= 7 ? 1 : streakDay + 1;
+  } else {
+    // Streak broken or first time — start at day 1
+    streakDay = 1;
+  }
+
+  return { streakDay, claimed };
+}
+
+/* ─── GET /streak ─────────────────────────────────────────────────── */
+
+router.get('/streak', async (req, res) => {
+  try {
+    const telegramUser = req.user;
+    const user = await getUser(telegramUser.id);
+    const { streakDay, claimed } = computeStreak(user);
+
+    return res.json({
+      streakDay,
+      amounts: STREAK_AMOUNTS,
+      claimed,
+    });
+  } catch (err) {
+    console.error('GET /streak error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/* ─── POST /streak ────────────────────────────────────────────────── */
+
+router.post('/streak', async (req, res) => {
+  try {
+    const telegramUser = req.user;
+    let user = await getUser(telegramUser.id);
+
+    const { streakDay, claimed } = computeStreak(user);
+
+    if (claimed) {
+      return res
+        .status(400)
+        .json({ error: 'Streak already claimed today' });
+    }
+
+    const reward = STREAK_AMOUNTS[streakDay - 1];
+    user.balance += reward;
+    user.streak_day = streakDay;
+    user.streak_last_date = todayStr();
+
+    await addTransaction(
+      user.id,
+      'streak',
+      reward,
+      `Daily streak day ${streakDay}`,
+    );
+    await updateUser(user);
+
+    return res.json({ user: await getUserState(telegramUser.id) });
+  } catch (err) {
+    console.error('POST /streak error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export default router;

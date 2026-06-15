@@ -1,0 +1,21 @@
+@import './base.css';
+@import './layout.css';
+@import './components.css';
+@import './miner.css';
+@import './play.css';
+@import './earn.css';
+@import './wallet.css';
+@import './overlays.css';
+
+/* Telegram-only gate */
+.tg-gate {
+  display: none;
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg-0);
+  flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 40px; gap: 20px;
+}
+.tg-gate.show { display: flex; }
+.tg-gate h2 { font-family: var(--font-display); font-size: 24px; color: var(--cu-1); }
+.tg-gate p { font-size: 14px; color: var(--ink-mute); line-height: 1.6; max-width: 300px; }
+.tg-gate .tg-logo { width: 64px; height: 64px; color: var(--cu-1); }

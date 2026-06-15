@@ -1,0 +1,91 @@
+/* =========================================================================
+   ORAEL — Telegram Mini App
+   Design language: "Engine Room" — warm near-black, machined copper accent,
+   analog instrument gauges, tactile surfaces, restrained light.
+   No neon. No rainbow gradients. One accent, used with discipline.
+   ========================================================================= */
+
+:root {
+  /* --- Base surfaces (warm near-black, layered) --- */
+  --bg-0: #0b0a09;          /* page base */
+  --bg-1: #121110;          /* raised panel */
+  --bg-2: #1a1816;          /* card */
+  --bg-3: #221f1c;          /* card hover / inset top */
+  --bg-inset: #0e0d0c;      /* recessed wells */
+
+  /* --- Hairlines & edges --- */
+  --line: rgba(255, 246, 232, 0.07);
+  --line-strong: rgba(255, 246, 232, 0.12);
+  --edge-hi: rgba(255, 250, 240, 0.05);   /* top bevel highlight */
+  --edge-lo: rgba(0, 0, 0, 0.55);          /* bottom shadow */
+
+  /* --- Text --- */
+  --ink: #f3ece1;           /* primary, warm white */
+  --ink-soft: #cdc4b6;     /* tertiary on-dark */
+  --ink-mute: #8f867b;      /* secondary */
+  --ink-faint: #645d54;     /* tertiary / labels */
+
+  /* --- Accent: machined copper / amber. The only warm hue that "shines". */
+  --cu-1: #e0a25b;          /* copper light */
+  --cu-2: #c87f3c;          /* copper */
+  --cu-3: #9c5e29;          /* copper deep */
+  --cu-glow: rgba(224, 162, 91, 0.18);
+
+  /* --- Functional, muted on purpose --- */
+  --good: #6fae8a;          /* dusty sage, not neon green */
+  --good-deep: #3f6b55;
+  --warn: #d8a24a;
+  --bad: #c66b5a;           /* terracotta, not red */
+
+  /* --- Type --- */
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", monospace;
+
+  /* --- Geometry --- */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+
+  /* --- Motion --- */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --nav-h: 74px;
+}
+
+:root { --ink-soft: #cdc4b6; }
+
+/* ----------------------------------------------------------------------- */
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-0);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  letter-spacing: -0.01em;
+}
+
+/* Background field: layered radial warmth + machined grain. Subtle. */
+.field {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(200, 127, 60, 0.10), transparent 55%),
+    radial-gradient(90% 60% at 85% 8%, rgba(224, 162, 91, 0.06), transparent 50%),
+    var(--bg-0);
+}
+.field::after {
+  /* fine grain so flat fills never look "digital clean" / AI-ish */
+  content: ""; position: absolute; inset: 0; opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}

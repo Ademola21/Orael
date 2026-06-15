@@ -59,7 +59,7 @@ Per-ad revenue = $0.0018. "Cost" = what we pay the user, in $ and ORL.
 | Lucky spin (avg/EV) | ~20 | $0.0004 | 1 ad or daily-free | 22% ✅ |
 | Scratch card (avg/EV) | ~18 | $0.00036 | 1 rewarded ad | 20% ✅ |
 | Mystery chest (5 ads) | 120 | $0.0024 | 5 rewarded ads ($0.009) | 27% ✅ |
-| 2× Boost (1 ad) | doubles tank | — | the boost ad pays for the extra ORL | 33% ✅ |
+| 1.2× Boost (1 ad) | 1.2× rate speed | — | the boost ad pays for the extra ORL | 33% ✅ |
 | Daily lottery | pool only | $0 net | self-funded by entry ads / ORL sinks | 0% ✅ |
 | Referral L1 / L2 | 10% / 3% | small | skimmed from referred users' ad-funded ORL | absorbed in the 35% |
 
@@ -178,7 +178,7 @@ EV = (100·.08)+(50·.14)+(250·.015)+(0)+(30·.12)+(15·.18)+(500·.005)+(5·.2
 ## 8. Orael Pro — does the subscription actually pay for itself?
 
 Pro = **250 Stars/mo ($3.25 to you)**. Perks: 2× rate, **ad-free** refuels, 5%
-withdrawals, free spins/chest.
+withdrawals, daily chest.
 
 The risk is ad-free refuels (no ad revenue) while still paying ORL. With the
 fixed-tank model it's bounded:
@@ -186,7 +186,7 @@ fixed-tank model it's bounded:
 ```
 Pro mining: 30 ORL tank, 2× speed → ~1.5h sessions → max ~16 tanks/day
   = 480 ORL/day = $0.0096/day = ~$0.29/mo
-Free spins + daily chest                              ≈ $0.30/mo
+daily chest                              ≈ $0.30/mo
 Total Pro payout cost                                 ≈ $0.60/mo
 Pro revenue                                            $3.25/mo
 Net profit per Pro user                              ≈ $2.65/mo  ✅
@@ -195,7 +195,7 @@ Net profit per Pro user                              ≈ $2.65/mo  ✅
 Even before counting that Pro users still do offerwall offers (more revenue).
 Pro is your **highest-margin product** — push it.
 
-> Keep Pro at 250 Stars. Do not raise the 2× past 2×, and never make spins/chest
+> Keep Pro at 250 Stars. Do not raise the 1.2x boost past 1.2x, and never make chest
 > ad-free *and* uncapped, or the bound breaks.
 
 ---
@@ -227,7 +227,7 @@ Below ~$1.00 CPM you'd dip toward break-even; that's what the admin panel is for
    drops, cut payouts in seconds.
 2. **Server-side ad verification** — credit ORL only after Adsgram's signed
    completion callback (anti-bot). Never trust the client.
-3. **Daily caps** per user on spins, faucet, chest, tasks (already designed).
+3. **Daily caps** per user on faucet, chest, tasks (already designed).
 4. **Frequency cap** ads to 1–2 per session burst to protect CPM and UX.
 5. **One account per Telegram ID**; referral self-invite detection.
 6. **Hold withdrawals 24h** + manual review above a threshold.
@@ -268,6 +268,7 @@ WITHDRAW_FEE    = 0.10;        // Pro: 0.05
 OFFER_USER_CUT  = 0.55;        // % of advertiser bid paid to user
 PRO_PRICE_STARS = 250;         // ≈ $3.25/mo to you
 PRO_RATE_MULT   = 2;
+BOOST_RATE_MULT = 1.2;
 ```
 
 These numbers keep you safe at $1.00 CPM and comfortably profitable at $1.80+.

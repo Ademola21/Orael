@@ -1,0 +1,200 @@
+import { Router } from 'express';
+import {
+  getUser,
+  createUser,
+  updateUser,
+  addTransaction,
+  getTransactions,
+  getCompletedTasks,
+  getLotteryPool,
+  checkAndRunDraws,
+  checkTierUpgrade
+} from '../db.js';
+import { accrueMinedORL } from '../services/mining.js';
+import {
+  TANK_ORL,
+  RIGS,
+  FAUCET_COOLDOWN,
+  STREAK_AMOUNTS,
+  SESSION_MS,
+  TASKS,
+  FEATURED_TASKS,
+  PRO_MULTIPLIER,
+  BOOST_MULTIPLIER,
+  getTierMultiplier
+} from '../economy.js';
+
+const router = Router();
+
+/**
+ * Helper to build the fully serialized state of a user.
+ * Calculates all client-facing derived fields like energy, hashrate, cooldowns.
+ * Maps snake_case DB columns to the camelCase properties the frontend expects.
+ * @param {number} telegramId
+ * @returns {Promise<object>}
+ */
+export function getUserState(telegramId) {
+  const user = getUser(telegramId);
+  if (!user) return null;
+
+  // Ensure user tier is updated automatically
+  checkTierUpgrade(user);
+
+  const now = Date.now();
+
+  // Energy: percentage of tank left
+  const energy = Math.max(0, Math.min(100, ((TANK_ORL - user.tank_mined) / TANK_ORL) * 100));
+
+  // Current Rig details
+  const rig = RIGS[user.rig_level] || RIGS[0];
+  const sessionMs = rig.sessionMin * 60 * 1000;
+
+  // Multipliers
+  const isPro = user.pro_until > now;
+  const isBoosted = user.boost_until > now;
+  const tierMul = getTierMultiplier(user.tier);
+  const multiplier = (isPro ? PRO_MULTIPLIER : 1) * (isBoosted ? BOOST_MULTIPLIER : 1) * tierMul;
+
+  // Hashrate: ORL/hour
+  const hashrate = (TANK_ORL / (rig.sessionMin / 60)) * multiplier;
+
+  // Fuel time left (ms)
+  let fuelTimeLeft = 0;
+  if (user.last_accrue_at && user.tank_mined < TANK_ORL) {
+    const elapsed = now - user.last_accrue_at;
+    fuelTimeLeft = Math.max(0, sessionMs - elapsed);
+  }
+
+  // Faucet state
+  const faucetReady = !user.faucet_last || (now - user.faucet_last >= FAUCET_COOLDOWN);
+  const faucetCooldown = user.faucet_last ? Math.max(0, FAUCET_COOLDOWN - (now - user.faucet_last)) : 0;
+
+  // Streak status
+  let streakClaimedToday = false;
+  if (user.streak_last_date) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    streakClaimedToday = (user.streak_last_date === todayStr);
+  }
+
+  // Fetch related database data
+  const transactions = getTransactions(user.id, 15);
+  const completedTaskIds = getCompletedTasks(user.id);
+
+  // Today's lottery pool stats from DB
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const pool = getLotteryPool(todayStr) || { total_pool: 0, total_tickets: 0 };
+  const lottoPool = pool.total_pool;
+  const lottoPlayers = pool.total_tickets;
+
+  // Convert completed task IDs to object mapping task_id -> true
+  const completedTasksObj = {};
+  for (const taskId of completedTaskIds) {
+    completedTasksObj[taskId] = true;
+  }
+
+  // Map tasks to include the client expected 'r' property instead of 'reward'
+  const clientTasks = TASKS.map(t => ({ id: t.id, title: t.title, sub: t.sub, r: t.reward, url: t.url }));
+  const clientFeaturedTasks = FEATURED_TASKS.map(t => ({ id: t.id, title: t.title, sub: t.sub, r: t.reward, url: t.url }));
+
+  return {
+    id: user.id,
+    telegramId: user.telegram_id,
+    firstName: user.first_name || '',
+    lastName: user.last_name || '',
+    username: user.username || '',
+    balance: user.balance,
+    rigLevel: user.rig_level,
+    tankMined: user.tank_mined,
+    lastAccrue: user.last_accrue_at || now,
+    boostUntil: user.boost_until,
+    proUntil: user.pro_until,
+    faucetLast: user.faucet_last,
+    streakDay: user.streak_day,
+    streakLastDate: user.streak_last_date,
+    spinDate: user.spin_date,
+    spinFreeUsed: user.spin_free_used > 0,
+    scratchDate: user.scratch_date,
+    scratchLeft: user.scratch_left,
+    chestProgress: user.chest_progress,
+    lottoDate: user.lotto_date,
+    lottoTickets: user.lotto_tickets,
+    refCode: user.referral_code,
+    tier: user.tier,
+    country: user.country || null,
+    ref: {
+      count: user.ref_count,
+      earned: user.ref_earnings,
+      active: user.ref_active
+    },
+    energy,
+    hashrate,
+    fuelTimeLeft,
+    faucetReady,
+    faucetCooldown,
+    streakClaimedToday,
+    isPro,
+    isBoosted,
+    rig,
+    rigs: RIGS,
+    nextRig: user.rig_level + 1 < RIGS.length ? RIGS[user.rig_level + 1] : null,
+    tasks: clientTasks,
+    featuredTasks: clientFeaturedTasks,
+    completedTasks: completedTasksObj,
+    lottoPool,
+    lottoPlayers,
+    transactions
+  };
+}
+
+// GET /api/user
+router.get('/', async (req, res) => {
+  try {
+    const telegramUser = req.telegramUser;
+    if (!telegramUser) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // Run any pending lottery drawings first
+    checkAndRunDraws();
+
+    let user = getUser(telegramUser.id);
+    const now = Date.now();
+    const country = req.headers['cf-ipcountry'] || null;
+
+    if (!user) {
+      // Parse start_param for referral
+      const initData = req.headers['x-telegram-init-data'] || '';
+      const params = new URLSearchParams(initData);
+      const startParam = params.get('start_param') || null;
+
+      user = createUser(
+        telegramUser.id,
+        telegramUser.first_name,
+        telegramUser.last_name || '',
+        telegramUser.username || '',
+        null,
+        startParam,
+        country
+      );
+
+      // Create initial transaction for joining
+      addTransaction(user.id, 'join', 0, 'Welcome to Orael!');
+    } else {
+      // Update country if it changed
+      if (country && user.country !== country) {
+        updateUser(user.id, { country });
+        user.country = country;
+      }
+      // Accrue mining first
+      await accrueMinedORL(user);
+    }
+
+    const state = await getUserState(telegramUser.id);
+    return res.json(state);
+  } catch (err) {
+    console.error('GET /api/user error:', err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+export default router;

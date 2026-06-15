@@ -9,9 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<link rel="stylesheet" href="styles.css" />
-<link rel="stylesheet" href="styles2.css" />
-<link rel="stylesheet" href="styles3.css" />
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 </head>
 <body>
 <div class="field"></div>
@@ -38,9 +36,9 @@
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span class="pro-chip"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 7l5 4 4-7 4 7 5-4-2 12H5L3 7z"/></svg>PRO</span>
-      <div class="user-chip">
+      <div class="user-chip" id="userChip" style="cursor: pointer;">
         <div class="av" id="userAv">A</div>
-        <div class="lvl">Tier <b id="userTier">2</b></div>
+        <div class="lvl">Tier <b id="userTier">...</b></div>
       </div>
     </div>
   </header>
@@ -53,13 +51,13 @@
         <div class="balance-top">
           <div>
             <div class="balance-label">Your balance</div>
-            <div class="balance-val"><span id="balance">0.00</span><span class="unit">ORL</span></div>
-            <div class="balance-fiat">≈ <b id="balanceFiat">₦0.00</b></div>
+            <div class="balance-val"><span id="balance">...</span><span class="unit">ORL</span></div>
+            <div class="balance-fiat">≈ <b id="balanceFiat">₦...</b></div>
           </div>
         </div>
         <div class="ticker">
           <span class="t-label">This session</span>
-          <span class="t-val" id="sessionEarned">0.0000 ORL mined</span>
+          <span class="t-val" id="sessionEarned">...</span>
         </div>
       </div>
 
@@ -81,7 +79,7 @@
             <circle class="gauge-arc-fg" id="gaugeArc" cx="100" cy="100" r="84" stroke-dasharray="395.8 527.8" stroke-dashoffset="0" />
           </svg>
           <div class="gauge-center">
-            <div class="gauge-energy"><span id="energyNum">100</span><span class="pct">%</span></div>
+            <div class="gauge-energy"><span id="energyNum">...</span><span class="pct">%</span></div>
             <div class="gauge-cap">Engine fuel</div>
             <div class="gauge-status" id="engineStatus">Mining active</div>
           </div>
@@ -89,9 +87,9 @@
       </div>
 
       <div class="stat-row">
-        <div class="stat"><div class="s-val" id="timeLeft">3:00:00</div><div class="s-lab">Fuel left</div></div>
-        <div class="stat"><div class="s-val cu" id="hashrate">2.5</div><div class="s-lab">ORL / hr</div></div>
-        <div class="stat"><div class="s-val" id="boostState">1.0×</div><div class="s-lab">Multiplier</div></div>
+        <div class="stat"><div class="s-val" id="timeLeft">...</div><div class="s-lab">Fuel left</div></div>
+        <div class="stat"><div class="s-val cu" id="hashrate">...</div><div class="s-lab">ORL / hr</div></div>
+        <div class="stat"><div class="s-val" id="boostState">...</div><div class="s-lab">Multiplier</div></div>
       </div>
 
       <button class="btn btn-primary" id="refuelBtn">
@@ -101,7 +99,7 @@
       <div style="height:11px"></div>
       <button class="btn btn-ghost" id="boostBtn">
         <svg class="ico" viewBox="0 0 24 24" fill="none"><path d="M12 3v6m0 0 3-3m-3 3L9 6M5 13l-2 8 9-5 9 5-2-8" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="btn-stack">Activate 2× Boost<small>Watch an ad · double speed for 3 hrs</small></span>
+        <span class="btn-stack">Activate 1.2× Boost<small>Watch an ad · 1.2× speed for 3 hrs</small></span>
       </button>
 
       <!-- Mining rig upgrade -->
@@ -109,11 +107,11 @@
       <div class="feat">
         <div class="feat-head">
           <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><rect x="3" y="9" width="18" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M7 9V6a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v3M8 13h.01M12 13h.01M16 13h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>Mining rig</div>
-          <span class="tag cu" id="rigName">Rig II</span>
+          <span class="tag cu" id="rigName">...</span>
         </div>
         <div class="rig-meter" id="rigMeter"></div>
         <div class="rig-row">
-          <div class="rig-now">Base rate <b id="rigRate">2.5</b> ORL/hr · next <b id="rigNext">4.0</b></div>
+          <div class="rig-now">Base rate <b id="rigRate">...</b> ORL/hr · next <b id="rigNext">...</b></div>
           <button class="faucet-btn" id="rigBtn">Upgrade</button>
         </div>
       </div>
@@ -128,7 +126,7 @@
       <div class="feat">
         <div class="feat-head">
           <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"/><path d="M12 12 7 7m5 5 5-5m-5 5v7" stroke="currentColor" stroke-width="1.5"/></svg>Lucky spin</div>
-          <span class="tag free" id="spinTag">1 free today</span>
+          <span class="tag free" id="spinTag">Free with ad</span>
         </div>
         <div class="wheel-wrap">
           <div class="wheel-stage">
@@ -138,7 +136,7 @@
           </div>
           <button class="btn btn-primary" id="spinBtn">Spin the wheel</button>
         </div>
-        <p class="hint" style="margin-bottom:0">Free daily spin. Extra spins cost one ad each.</p>
+        <p class="hint" style="margin-bottom:0">Watch a short ad to spin the wheel and win prizes.</p>
       </div>
 
       <!-- Scratch card -->
@@ -274,10 +272,10 @@
     <section class="screen" id="screen-wallet">
       <div class="card withdraw-head">
         <div class="wl">Available to withdraw</div>
-        <div class="wv"><span id="wBalance">0.00</span> ORL</div>
-        <div class="wf">≈ <span id="wFiat">₦0.00</span></div>
+        <div class="wv"><span id="wBalance">...</span> ORL</div>
+        <div class="wf">≈ <span id="wFiat">₦...</span></div>
         <div class="progress"><i id="wProgress" style="width:0%"></i></div>
-        <div class="progress-cap"><span id="wProgLabel">0 / 50,000 ORL</span><span>Min. withdrawal</span></div>
+        <div class="progress-cap"><span id="wProgLabel">...</span><span>Min. withdrawal</span></div>
       </div>
 
       <!-- Pro Miner -->
@@ -290,7 +288,7 @@
           <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>2× base mining rate, always on</li>
           <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Refuel without ads</li>
           <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Half-price withdrawals, priority payout</li>
-          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>3 free spins &amp; daily chest</li>
+          <li><svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4 10-11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Daily mystery chest access</li>
         </ul>
         <button class="btn btn-stars" id="proBtn">
           <svg class="stars-ico" viewBox="0 0 24 24" fill="#1c1109"><path d="M12 2l2.9 6.3 6.9.7-5.1 4.6 1.4 6.8L12 17.8 5.9 20.4l1.4-6.8L2.2 9l6.9-.7L12 2z"/></svg>
@@ -298,39 +296,17 @@
         </button>
       </div>
 
-      <!-- Staking -->
-      <div class="feat">
-        <div class="feat-head">
-          <div class="feat-title"><svg viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="6" rx="7" ry="3" stroke="currentColor" stroke-width="1.6"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" stroke="currentColor" stroke-width="1.6"/></svg>Stake ORL</div>
-          <span class="feat-meta">earn passive yield</span>
-        </div>
-        <div class="stake-active" id="stakeActive" hidden></div>
-        <div class="stake-opts" id="stakeOpts">
-          <div class="stake-opt sel" data-days="7" data-apy="8"><div class="so-apy">8%</div><div class="so-days">7 days</div></div>
-          <div class="stake-opt" data-days="30" data-apy="14"><div class="so-apy">14%</div><div class="so-days">30 days</div></div>
-          <div class="stake-opt" data-days="90" data-apy="25"><div class="so-apy">25%</div><div class="so-days">90 days</div></div>
-        </div>
-        <button class="btn btn-ghost" id="stakeBtn">Stake 10,000 ORL</button>
-        <p class="hint" style="margin-bottom:0">Locking ORL boosts the coin and earns yield. Unlocks after the term.</p>
-      </div>
+
 
       <div class="eyebrow">Payout method</div>
       <div class="method-grid">
-        <div class="method sel" data-min="50000" data-name="Bank (NGN)">
+        <div class="method sel" id="method-bank" data-min="50000" data-name="Bank (NGN)">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="13" rx="2" stroke="#e0a25b" stroke-width="1.8"/><path d="M3 10h18" stroke="#e0a25b" stroke-width="1.8"/></svg>
           <div class="m-name">Bank (NGN)</div><div class="m-min">Min 50,000 ORL</div>
         </div>
-        <div class="method" data-min="150000" data-name="USDT">
+        <div class="method" id="method-usdt" data-min="150000" data-name="USDT">
           <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M7 6h7a3 3 0 0 1 0 6H7m0 0h8a3 3 0 0 1 0 6H7" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
           <div class="m-name">USDT (TRC20)</div><div class="m-min">Min 150,000 ORL</div>
-        </div>
-        <div class="method" data-min="30000" data-name="Airtime">
-          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M5 12a7 7 0 0 1 14 0M5 12a7 7 0 0 0 14 0" stroke="#e0a25b" stroke-width="1.8"/></svg>
-          <div class="m-name">Airtime</div><div class="m-min">Min 30,000 ORL</div>
-        </div>
-        <div class="method" data-min="80000" data-name="Opay">
-          <svg class="m-ic" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#e0a25b" stroke-width="1.8"/><path d="M9.5 9.5h3a2 2 0 0 1 0 4h-3v-4zm0 4V16" stroke="#e0a25b" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <div class="m-name">Opay / Wallet</div><div class="m-min">Min 80,000 ORL</div>
         </div>
       </div>
 
@@ -383,6 +359,70 @@
   </div>
 </div>
 
+<!-- ===================== TIER DETAILS MODAL ===================== -->
+<div class="modal-veil" id="tierVeil">
+  <div class="modal" style="max-width: 320px; text-align: left; padding: 24px;">
+    <h3 style="margin-top: 0; margin-bottom: 8px; font-family: var(--font-display); color: var(--cu-1); text-align: center;">Orael Tiers</h3>
+    <p style="font-size: 13px; color: var(--ink-mute); margin-bottom: 18px; line-height: 1.4; text-align: center;">
+      Your tier is calculated automatically based on your ORL balance or number of invites. Tiers grant passive mining rate multipliers.
+    </p>
+    
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+      <!-- Tier 1 -->
+      <div class="tier-row" id="tier-row-1" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--r-m); background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.2s;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--ink);">Tier 1: Bronze</div>
+          <div style="font-size: 11px; color: var(--ink-soft);">Requirement: None (Base)</div>
+        </div>
+        <div style="font-weight: 700; color: var(--cu-1); font-size: 13px;">1.0x rate</div>
+      </div>
+      
+      <!-- Tier 2 -->
+      <div class="tier-row" id="tier-row-2" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--r-m); background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.2s;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--ink);">Tier 2: Silver</div>
+          <div style="font-size: 11px; color: var(--ink-soft);">5k ORL OR 3 Invites</div>
+        </div>
+        <div style="font-weight: 700; color: var(--cu-1); font-size: 13px;">1.1x rate</div>
+      </div>
+      
+      <!-- Tier 3 -->
+      <div class="tier-row" id="tier-row-3" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--r-m); background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.2s;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--ink);">Tier 3: Gold</div>
+          <div style="font-size: 11px; color: var(--ink-soft);">25k ORL OR 10 Invites</div>
+        </div>
+        <div style="font-weight: 700; color: var(--cu-1); font-size: 13px;">1.25x rate</div>
+      </div>
+      
+      <!-- Tier 4 -->
+      <div class="tier-row" id="tier-row-4" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--r-m); background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.2s;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--ink);">Tier 4: Platinum</div>
+          <div style="font-size: 11px; color: var(--ink-soft);">100k ORL OR 25 Invites</div>
+        </div>
+        <div style="font-weight: 700; color: var(--cu-1); font-size: 13px;">1.5x rate</div>
+      </div>
+      
+      <!-- Tier 5 -->
+      <div class="tier-row" id="tier-row-5" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: var(--r-m); background: rgba(255,255,255,0.03); border: 1px solid transparent; transition: all 0.2s;">
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: var(--ink);">Tier 5: Diamond</div>
+          <div style="font-size: 11px; color: var(--ink-soft);">500k ORL OR 100 Invites</div>
+        </div>
+        <div style="font-weight: 700; color: var(--cu-1); font-size: 13px;">2.0x rate</div>
+      </div>
+    </div>
+    
+    <!-- Progression Info -->
+    <div id="tierProgression" style="background: rgba(224,162,91,0.08); border: 1px dashed rgba(224,162,91,0.25); border-radius: var(--r-m); padding: 12px; font-size: 12px; margin-bottom: 20px; line-height: 1.45;">
+      <!-- Dynamic progress text goes here -->
+    </div>
+    
+    <button class="btn btn-primary" id="tierClose" style="width: 100%; margin-top: 4px;">Close</button>
+  </div>
+</div>
+
 <!-- ===================== REWARD MODAL ===================== -->
 <div class="modal-veil" id="modalVeil">
   <div class="modal">
@@ -396,6 +436,15 @@
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script src="app.js"></script>
+<!-- ===================== TELEGRAM GATE ===================== -->
+<div class="tg-gate" id="tg-gate" style="display: none;">
+  <svg class="tg-logo" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15.82-.78 4.54-1.1 6.25-.14.72-.4 1.13-.66 1.16-.56.05-1-.37-1.54-.73-.85-.56-1.33-.91-2.16-1.45-.96-.63-.34-.98.21-1.55.14-.15 2.66-2.44 2.71-2.65.01-.03.01-.13-.05-.18-.06-.05-.15-.03-.21-.02-.09.02-1.58 1-4.47 2.96-.42.29-.8.43-1.14.42-.38-.01-1.11-.22-1.65-.39-.66-.22-1.19-.33-1.14-.7.03-.19.29-.39.8-.59 3.12-1.36 5.2-2.26 6.24-2.7 2.97-1.26 3.59-1.48 3.99-1.48.09 0 .28.02.4.12.1.08.13.19.14.28 0 .04.01.16 0 .25z"/>
+  </svg>
+  <h2>Telegram Only Access</h2>
+  <p>For security and access to real-time rewards, please open this app inside Telegram.</p>
+</div>
+
+<script type="module" src="/src/main.js"></script>
 </body>
 </html>

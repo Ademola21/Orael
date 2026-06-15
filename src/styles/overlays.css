@@ -1,0 +1,64 @@
+/* =========================================================================
+   AD OVERLAY (simulated rewarded video)
+   ========================================================================= */
+.ad-veil {
+  position: fixed; inset: 0; z-index: 60; display: none;
+  background: rgba(6,5,4,0.86); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 30px;
+  animation: fade 0.3s ease;
+}
+.ad-veil.show { display: flex; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.ad-box {
+  width: 100%; max-width: 360px; text-align: center;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line-strong); border-radius: var(--r-xl);
+  padding: 32px 26px; box-shadow: 0 30px 80px -30px #000;
+}
+.ad-ring { width: 88px; height: 88px; margin: 0 auto 18px; position: relative; }
+.ad-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ad-ring .ad-num {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 600; font-size: 26px;
+}
+.ad-box h3 { font-family: var(--font-display); font-size: 19px; margin-bottom: 6px; }
+.ad-box p { font-size: 13px; color: var(--ink-mute); line-height: 1.5; }
+.ad-tag { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-faint); margin-top: 18px; }
+
+/* =========================================================================
+   TOAST
+   ========================================================================= */
+.toast-wrap {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + var(--safe-bot) + 16px);
+  z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  border: 1px solid var(--line-strong); border-radius: 100px;
+  padding: 11px 20px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  box-shadow: 0 18px 40px -16px #000; display: flex; align-items: center; gap: 9px;
+  animation: toastIn 0.4s var(--ease-out);
+}
+.toast .tcoin { color: var(--cu-1); font-family: var(--font-mono); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+
+/* misc */
+.hint { font-size: 12px; color: var(--ink-faint); text-align: center; line-height: 1.5; margin: 4px 4px 18px; }
+
+/* generic reward modal */
+.modal-veil {
+  position: fixed; inset: 0; z-index: 65; display: none; align-items: center; justify-content: center;
+  background: rgba(6,5,4,0.84); backdrop-filter: blur(8px); padding: 28px; animation: fade 0.3s ease;
+}
+.modal-veil.show { display: flex; }
+.modal {
+  width: 100%; max-width: 340px; text-align: center; padding: 30px 24px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line-strong); border-radius: var(--r-xl);
+  box-shadow: 0 30px 80px -30px #000; animation: rise 0.4s var(--ease-out);
+}
+.modal .m-burst { width: 70px; height: 70px; margin: 0 auto 14px; color: var(--cu-1); }
+.modal h3 { font-family: var(--font-display); font-size: 20px; margin-bottom: 6px; }
+.modal .m-amt { font-family: var(--font-display); font-weight: 700; font-size: 34px; color: var(--cu-1); margin: 6px 0; }
+.modal p { font-size: 13px; color: var(--ink-mute); line-height: 1.5; margin-bottom: 18px; }
+.modal .btn { margin-top: 4px; }
