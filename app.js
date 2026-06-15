@@ -8,39 +8,41 @@ const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); } catch (e) {}
 
 /* ---- Economy constants ---- */
-const SESSION_MS = 3 * 60 * 60 * 1000;
-const ORL_TO_NGN = 0.15;
+const SESSION_MS = 3 * 60 * 60 * 1000;   // boost duration
+const ORL_TO_NGN = 0.03;                 // 1 ORL = ₦0.03  ($1 = 50,000 ORL)
+const TANK_ORL = 30;                     // fixed ORL per refuel tank (fixed-tank model)
 const ARC_LEN = 395.8, AD_RING = 276.46;
 const RIGS = [
-  { name: "Rig I",   rate: 2.5,  cost: 0 },
-  { name: "Rig II",  rate: 4.0,  cost: 5000 },
-  { name: "Rig III", rate: 6.5,  cost: 15000 },
-  { name: "Rig IV",  rate: 10.0, cost: 40000 },
-  { name: "Rig V",   rate: 16.0, cost: 100000 },
+  { name: "Rig I",   sessionMin: 180, cost: 0 },
+  { name: "Rig II",  sessionMin: 150, cost: 5000 },
+  { name: "Rig III", sessionMin: 120, cost: 20000 },
+  { name: "Rig IV",  sessionMin: 90,  cost: 60000 },
+  { name: "Rig V",   sessionMin: 60,  cost: 150000 },
 ];
-const FAUCET_COOLDOWN = 60 * 60 * 1000;   // 1h
-const FAUCET_REWARD = 60;
+const FAUCET_COOLDOWN = 60 * 60 * 1000;
+const FAUCET_REWARD = 20;
 const LOTTO_TICKET_ORL = 500;
 const CHEST_GOAL = 5;
-const WHEEL_PRIZES = [100, 50, 250, 0, 150, 75, 500, 25]; // 8 segments
-const WHEEL_WEIGHTS = [16, 22, 6, 14, 12, 18, 2, 10];
+const WHEEL_PRIZES = [100, 50, 250, 0, 30, 15, 500, 5];
+const WHEEL_WEIGHTS = [8, 14, 1.5, 22, 12, 18, 0.5, 24];
 
 /* ---- State ---- */
 const now = () => Date.now();
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const DEFAULT = {
   balance: 12480.5,
-  miningStart: now(),
+  tankMined: 0,
+  lastAccrue: now(),
   boostUntil: 0,
   rigLevel: 1,
-  pro: 0,                       // pro active until ts
+  pro: 0,
   streakDay: 3,
   faucetLast: 0,
   spinDay: "", spinFreeUsed: false,
   scratchDay: "", scratchLeft: 3,
   chest: 0,
   lottoDay: "", lottoMine: 0,
-  stake: null,                  // { amount, apy, until }
+  stake: null,
   tasks: {}, offers: {}, surveys: {}, featured: {},
   ref: { count: 14, earned: 8420, active: 9 },
   history: [
@@ -51,10 +53,10 @@ const DEFAULT = {
 };
 let S = load();
 function load() {
-  try { const r = JSON.parse(localStorage.getItem("orael_v2")); return r ? { ...DEFAULT, ...r } : { ...DEFAULT }; }
+  try { const r = JSON.parse(localStorage.getItem("orael_v3")); return r ? { ...DEFAULT, ...r } : { ...DEFAULT }; }
   catch (e) { return { ...DEFAULT }; }
 }
-function save() { localStorage.setItem("orael_v2", JSON.stringify(S)); }
+function save() { localStorage.setItem("orael_v3", JSON.stringify(S)); }
 
 /* daily resets */
 function rollDay() {
@@ -64,21 +66,23 @@ function rollDay() {
   if (S.lottoDay !== t) { S.lottoDay = t; S.lottoMine = 0; }
 }
 
-/* ---- Derived ---- */
+/* ---- Derived (fixed-tank economy) ---- */
 const isPro = () => now() < S.pro;
-const fuelMsLeft = () => Math.max(0, SESSION_MS - (now() - S.miningStart));
-const energyPct = () => (fuelMsLeft() / SESSION_MS) * 100;
 const isBoosted = () => now() < S.boostUntil;
-const baseRate = () => RIGS[S.rigLevel].rate * (isPro() ? 2 : 1);
-const ratePerHr = () => baseRate() * (isBoosted() ? 2 : 1);
-const isMining = () => fuelMsLeft() > 0;
-const totalMult = () => (isPro() ? 2 : 1) * (isBoosted() ? 2 : 1);
+const mult = () => (isPro() ? 2 : 1) * (isBoosted() ? 2 : 1);
+const sessionHrs = () => RIGS[S.rigLevel].sessionMin / 60;
+const ratePerHr = () => (TANK_ORL / sessionHrs()) * mult();
+const energyPct = () => Math.max(0, (TANK_ORL - S.tankMined) / TANK_ORL * 100);
+const isMining = () => S.tankMined < TANK_ORL - 1e-9;
+const fuelMsLeft = () => isMining() ? ((TANK_ORL - S.tankMined) / ratePerHr()) * 3600000 : 0;
+const totalMult = () => mult();
 
-let bankedStart = S.miningStart;
 function accrue() {
-  const end = Math.min(now(), S.miningStart + SESSION_MS);
-  const ms = end - bankedStart;
-  if (ms > 0) { S.balance += (ms / 3600000) * ratePerHr(); bankedStart = end; }
+  const t = now(); const dt = t - S.lastAccrue; S.lastAccrue = t;
+  if (dt <= 0 || S.tankMined >= TANK_ORL) return;
+  let orl = (dt / 3600000) * ratePerHr();
+  orl = Math.min(orl, TANK_ORL - S.tankMined);
+  S.balance += orl; S.tankMined += orl;
 }
 
 /* ---- Format ---- */
@@ -109,8 +113,7 @@ function render() {
   $("timeLeft").textContent = hms(fuelMsLeft());
   $("hashrate").textContent = fmt(ratePerHr(),1);
   $("boostState").textContent = totalMult().toFixed(1) + "×";
-  const tankMs = Math.min(now(), S.miningStart + SESSION_MS) - S.miningStart;
-  $("sessionEarned").textContent = fmt((tankMs/3600000)*ratePerHr(),4) + " ORL mined";
+  $("sessionEarned").textContent = fmt(S.tankMined,4) + " ORL mined";
 
   $("refuelBtn").disabled = e > 95;
   $("boostBtn").disabled = isBoosted() || !mining;
@@ -160,11 +163,11 @@ function render() {
 function renderRig() {
   const r = RIGS[S.rigLevel], next = RIGS[S.rigLevel+1];
   $("rigName").textContent = r.name;
-  $("rigRate").textContent = fmt(r.rate,1);
+  $("rigRate").textContent = fmt(TANK_ORL / (r.sessionMin/60), 1);
   const meter = $("rigMeter");
   meter.innerHTML = RIGS.map((_, i) => `<div class="rig-seg ${i <= S.rigLevel ? "on":""}"></div>`).join("");
   if (next) {
-    $("rigNext").textContent = fmt(next.rate,1);
+    $("rigNext").textContent = fmt(TANK_ORL / (next.sessionMin/60), 1);
     $("rigBtn").textContent = `Upgrade · ${fmtInt(next.cost)} ORL`;
     $("rigBtn").disabled = S.balance < next.cost;
   } else {
@@ -214,22 +217,22 @@ function renderHistory() {
 }
 
 const TASKS = [
-  { id:"t1", title:"Watch a sponsored video", sub:"15s · rewarded ad", r:50 },
-  { id:"t2", title:"Visit partner offer", sub:"Open link · 10s", r:35 },
-  { id:"t3", title:"Daily quiz", sub:"Answer 1 question", r:40 },
+  { id:"t1", title:"Watch a sponsored video", sub:"15s · rewarded ad", r:25 },
+  { id:"t2", title:"Visit partner offer", sub:"Open link · 10s", r:20 },
+  { id:"t3", title:"Daily quiz", sub:"Answer 1 question", r:20 },
 ];
 const FEATURED = [
-  { id:"f1", title:"Join TonStation", sub:"Open & start the bot", r:120 },
-  { id:"f2", title:"Follow Orael on X", sub:"Tap follow", r:80 },
-  { id:"f3", title:"Subscribe Orael channel", sub:"Telegram", r:100 },
+  { id:"f1", title:"Join TonStation", sub:"Open & start the bot", r:30 },
+  { id:"f2", title:"Follow Orael on X", sub:"Tap follow", r:25 },
+  { id:"f3", title:"Subscribe Orael channel", sub:"Telegram", r:25 },
 ];
 const OFFERS = [
-  { id:"o1", title:"Install Monopoly GO", sub:"Reach level 5", r:9000, usd:"$0.90", b:"g", cat:"game" },
-  { id:"o2", title:"Sign up Bybit + KYC", sub:"Verify identity", r:42000, usd:"$4.20", b:"b", cat:"finance" },
-  { id:"o3", title:"Try Temu, place order", sub:"First purchase", r:18000, usd:"$1.80", b:"g", cat:"shop" },
-  { id:"o4", title:"Install & open TikTok Lite", sub:"Keep 3 days", r:6500, usd:"$0.65", b:"b", cat:"game" },
-  { id:"o5", title:"Open a Bitget account", sub:"Deposit + first trade", r:38000, usd:"$3.80", b:"b", cat:"finance" },
-  { id:"o6", title:"Shop on AliExpress", sub:"First order $5+", r:14000, usd:"$1.40", b:"g", cat:"shop" },
+  { id:"o1", title:"Install Monopoly GO", sub:"Reach level 5", r:25000, usd:"$0.50", b:"g", cat:"game" },
+  { id:"o2", title:"Sign up Bybit + KYC", sub:"Verify identity", r:137500, usd:"$2.75", b:"b", cat:"finance" },
+  { id:"o3", title:"Try Temu, place order", sub:"First purchase", r:50000, usd:"$1.00", b:"g", cat:"shop" },
+  { id:"o4", title:"Install & open TikTok Lite", sub:"Keep 3 days", r:20000, usd:"$0.40", b:"b", cat:"game" },
+  { id:"o5", title:"Open a Bitget account", sub:"Deposit + first trade", r:115000, usd:"$2.30", b:"b", cat:"finance" },
+  { id:"o6", title:"Shop on AliExpress", sub:"First order $5+", r:40000, usd:"$0.80", b:"g", cat:"shop" },
 ];
 const FEATURED_OFFERS = [
   { title:"Cooking Blast", pay:"+34,300", emoji:"🍳", g:"linear-gradient(135deg,#8e6cc4,#4a3270)", plat:"a" },
@@ -251,9 +254,9 @@ const LIVE_GAMES = [
 ];
 const LIVE_USERS = ["@chidi","@zainab","MinerKing","@tunde","Blessing","@ifeoma","RigBoss","@amaka","Daniel","@yusuf"];
 const SURVEYS = [
-  { id:"s1", title:"Consumer habits survey", sub:"~4 min · BitLabs", r:5200, usd:"$0.52" },
-  { id:"s2", title:"Mobile gaming poll", sub:"~2 min · CPX", r:2800, usd:"$0.28" },
-  { id:"s3", title:"Shopping preferences", sub:"~6 min · CPX", r:7400, usd:"$0.74" },
+  { id:"s1", title:"Consumer habits survey", sub:"~4 min · BitLabs", r:15000, usd:"$0.30" },
+  { id:"s2", title:"Mobile gaming poll", sub:"~2 min · CPX", r:8000, usd:"$0.16" },
+  { id:"s3", title:"Shopping preferences", sub:"~6 min · CPX", r:21000, usd:"$0.42" },
 ];
 
 function chipFor(done, label) { return `<div class="chip-go">${done ? "Done" : label}</div>`; }
@@ -437,7 +440,7 @@ function haptic(type){ try{ const h=tg?.HapticFeedback; if(!h)return; if(type===
    ACTIONS
    ======================================================================== */
 $("refuelBtn").addEventListener("click", () => {
-  const go = () => { accrue(); S.miningStart=now(); bankedStart=now(); save(); render(); toast("Engine refueled","Fuel at 100%"); };
+  const go = () => { accrue(); S.tankMined=0; S.lastAccrue=now(); save(); render(); toast("Engine refueled","Fuel at 100%"); };
   if (isPro()) { go(); return; }   // Pro refuels without ads
   playAd("Refueling engine…","Reward unlocks when the ad finishes.",15,go);
 });
@@ -453,7 +456,7 @@ $("rigBtn").addEventListener("click", () => {
   const next = RIGS[S.rigLevel+1]; if (!next || S.balance < next.cost) return;
   S.balance -= next.cost; S.rigLevel++; save(); render();
   addHistory(`Upgraded to ${RIGS[S.rigLevel].name}`, `-${fmtInt(next.cost)} ORL`, "neg", "Just now"); renderHistory();
-  reward(0, `${RIGS[S.rigLevel].name} online`, `Mining at ${fmt(RIGS[S.rigLevel].rate,1)} ORL/hr base.`);
+  reward(0, `${RIGS[S.rigLevel].name} online`, `Now mining ${fmt(TANK_ORL/(RIGS[S.rigLevel].sessionMin/60),1)} ORL/hr — faster sessions.`);
 });
 
 $("spinBtn").addEventListener("click", () => {
@@ -465,7 +468,7 @@ $("spinBtn").addEventListener("click", () => {
 $("scratchBtn").addEventListener("click", () => {
   if (S.scratchLeft<=0) { toast("No cards left","Come back tomorrow"); return; }
   playAd("Loading card…","Scratch to reveal your prize.",8,()=>{
-    S.scratchLeft--; const prizes=[20,40,60,100,150,0,250]; const w=[20,20,16,14,10,16,4];
+    S.scratchLeft--; const prizes=[5,15,30,60,150,0]; const w=[40,30,18,8,1,3];
     const p = prizes[weightedPick(w)];
     const card=$("scratch"); card.classList.remove("revealed");
     $("scratchPrize").textContent = p>0 ? "+"+p : "✕";
@@ -481,7 +484,7 @@ $("scratchBtn").addEventListener("click", () => {
 $("chestBtn").addEventListener("click", () => {
   playAd("Filling chest…","Each ad gets you closer to the loot.",10,()=>{
     S.chest++;
-    if (S.chest>=CHEST_GOAL){ S.chest=0; const p=300+Math.floor(Math.random()*500); S.balance+=p; addHistory("Mystery chest",`+${p} ORL`,"pos","Just now"); renderHistory(); reward(p,"Chest unlocked!","Big haul. Fill another one?"); }
+    if (S.chest>=CHEST_GOAL){ S.chest=0; const p=100+Math.floor(Math.random()*51); S.balance+=p; addHistory("Mystery chest",`+${p} ORL`,"pos","Just now"); renderHistory(); reward(p,"Chest unlocked!","Big haul. Fill another one?"); }
     else toast("Chest filling",`${S.chest}/${CHEST_GOAL}`);
     save(); render();
   });
