@@ -269,7 +269,19 @@ function renderAdsgramTasks() {
         haptic('success');
         toast('Task completed!', 'Updating balance...');
 
-        // Wait 2 seconds for server S2S webhook to complete and credit balance, then sync local state from server
+        // Immediately update card to show a refreshing/loading state
+        container.innerHTML = `
+          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+            Checking for next available task...
+          </div>
+        `;
+
+        // Reload the Adsgram task widget to load the next task (or show empty state if none are left)
+        setTimeout(() => {
+          renderAdsgramTasks();
+        }, 1000);
+
+        // Wait 2.5 seconds for server S2S webhook to complete and credit balance, then sync local state
         setTimeout(async () => {
           try {
             const res = await api('/api/user');
@@ -279,7 +291,25 @@ function renderAdsgramTasks() {
           } catch (e) {
             console.error('Failed to sync after ad completion:', e);
           }
-        }, 2000);
+        }, 2500);
+      });
+
+      taskEl.addEventListener('onBannerNotFound', () => {
+        console.log('[Adsgram Task] No banner found.');
+        container.innerHTML = `
+          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+            All tasks completed! Come back later.
+          </div>
+        `;
+      });
+
+      taskEl.addEventListener('onError', (err) => {
+        console.error('[Adsgram Task] Error:', err);
+        container.innerHTML = `
+          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+            No tasks available at the moment.
+          </div>
+        `;
       });
     }
   }, 100);
