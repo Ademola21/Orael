@@ -252,67 +252,65 @@ function renderAdsgramTasks() {
 
   const isDebug = import.meta.env.DEV ? 'true' : 'false';
 
-  container.innerHTML = `
-    <adsgram-task 
-      data-block-id="${blockId}" 
-      data-debug="${isDebug}" 
-      data-debug-console="false" 
-      class="task">
-    </adsgram-task>
-  `;
+  const taskEl = document.createElement('adsgram-task');
+  taskEl.setAttribute('data-block-id', blockId);
+  taskEl.setAttribute('data-debug', isDebug);
+  taskEl.setAttribute('data-debug-console', 'false');
+  taskEl.className = 'task';
 
-  setTimeout(() => {
-    const taskEl = container.querySelector('adsgram-task');
-    if (taskEl) {
-      taskEl.addEventListener('reward', async (event) => {
-        console.log('[Adsgram Task] Completed! Detail:', event.detail);
-        haptic('success');
-        toast('Task completed!', 'Updating balance...');
+  const handleReward = async (event) => {
+    console.log('[Adsgram Task] Completed! Detail:', event.detail);
+    haptic('success');
+    toast('Task completed!', 'Updating balance...');
 
-        // Immediately update card to show a refreshing/loading state
-        container.innerHTML = `
-          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
-            Checking for next available task...
-          </div>
-        `;
+    // Immediately update card to show a refreshing/loading state
+    container.innerHTML = `
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+        Checking for next available task...
+      </div>
+    `;
 
-        // Reload the Adsgram task widget to load the next task (or show empty state if none are left)
-        setTimeout(() => {
-          renderAdsgramTasks();
-        }, 1000);
+    // Reload the Adsgram task widget to load the next task (or show empty state if none are left)
+    setTimeout(() => {
+      renderAdsgramTasks();
+    }, 1000);
 
-        // Wait 2.5 seconds for server S2S webhook to complete and credit balance, then sync local state
-        setTimeout(async () => {
-          try {
-            const res = await api('/api/user');
-            updateState(res);
-            render();
-            toast('Success!', 'Reward credited to your balance.');
-          } catch (e) {
-            console.error('Failed to sync after ad completion:', e);
-          }
-        }, 2500);
-      });
+    // Wait 2.5 seconds for server S2S webhook to complete and credit balance, then sync local state
+    setTimeout(async () => {
+      try {
+        const res = await api('/api/user');
+        updateState(res);
+        render();
+        toast('Success!', 'Reward credited to your balance.');
+      } catch (e) {
+        console.error('Failed to sync after ad completion:', e);
+      }
+    }, 2500);
+  };
 
-      taskEl.addEventListener('onBannerNotFound', () => {
-        console.log('[Adsgram Task] No banner found.');
-        container.innerHTML = `
-          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
-            All tasks completed! Come back later.
-          </div>
-        `;
-      });
+  taskEl.addEventListener('reward', handleReward);
+  taskEl.addEventListener('onReward', handleReward);
 
-      taskEl.addEventListener('onError', (err) => {
-        console.error('[Adsgram Task] Error:', err);
-        container.innerHTML = `
-          <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
-            No tasks available at the moment.
-          </div>
-        `;
-      });
-    }
-  }, 100);
+  taskEl.addEventListener('onBannerNotFound', () => {
+    console.log('[Adsgram Task] No banner found.');
+    container.innerHTML = `
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+        All tasks completed! Come back later.
+      </div>
+    `;
+  });
+
+  taskEl.addEventListener('onError', (err) => {
+    console.error('[Adsgram Task] Error:', err);
+    container.innerHTML = `
+      <div style="font-size:13px;color:var(--ink-soft);text-align:center;padding:12px 0;">
+        No tasks available at the moment.
+      </div>
+    `;
+  });
+
+  container.innerHTML = '';
+  container.appendChild(taskEl);
 }
 
 /* ========================================================================

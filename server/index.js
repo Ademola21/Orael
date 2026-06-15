@@ -140,10 +140,17 @@ app.use('/api/leaderboard', verifyTelegramInitData, generalLimit, leaderboardRou
 // In production, serve static front-end assets
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.resolve(__dirname, '..', 'dist');
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+      }
+    }
+  }));
   
   // Catch-all route to serve the built index.html
   app.get('*', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
