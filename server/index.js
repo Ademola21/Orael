@@ -196,6 +196,72 @@ app.get('/api/mmwall-callback', async (req, res) => {
   return res.json({ success: true, message: 'Reward verified and credited successfully' });
 });
 
+// ayeT-Studios callback verification endpoint (public)
+app.get('/api/ayet-callback', async (req, res) => {
+  const { userId, amount, transactionId } = req.query;
+  const configuredSecret = process.env.AYET_API_KEY || '';
+
+  console.log(`[ayeT-Studios Callback] Received request: userId=${userId}, amount=${amount}, transactionId=${transactionId}`);
+
+  if (!userId || !amount || !transactionId) {
+    console.warn('[ayeT-Studios Callback] Missing required parameters');
+    return res.status(400).json({ error: 'Missing required parameters (userId, amount, transactionId)' });
+  }
+
+  // 1. Signature Verification (HMAC SHA256 using Publisher API Key)
+  const incomingHash = req.headers['x-ayetstudios-security-hash'];
+  if (configuredSecret && incomingHash) {
+    const sortedKeys = Object.keys(req.query).sort();
+    const sortedParams = [];
+    for (const key of sortedKeys) {
+      sortedParams.push(`${key}=${encodeURIComponent(req.query[key])}`);
+    }
+    const paramString = sortedParams.join('&');
+
+    const hmac = crypto.createHmac('sha256', configuredSecret);
+    hmac.update(paramString);
+    const calculatedHash = hmac.digest('hex');
+
+    if (calculatedHash !== incomingHash) {
+      console.warn(`[ayeT-Studios Callback] Invalid signature. Calculated: ${calculatedHash}, Received: ${incomingHash}`);
+      return res.status(403).json({ error: 'Invalid security signature' });
+    }
+  }
+
+  try {
+    // 2. Prevent duplicate crediting
+    const taskId = `ayet:${transactionId}`;
+    const existing = getOne('SELECT 1 FROM completed_tasks WHERE task_id = ?', [taskId]);
+    if (existing) {
+      console.log(`[ayeT-Studios Callback] Transaction ${transactionId} already processed. Skipping.`);
+      return res.json({ success: true, message: 'Transaction already processed' });
+    }
+
+    // 3. Find user and credit reward
+    const dbUser = await getUser(userId);
+    if (dbUser) {
+      const rewardAmount = parseFloat(amount) || 0;
+      if (rewardAmount > 0) {
+        dbUser.balance += rewardAmount;
+        await addTransaction(dbUser.id, 'offerwall', rewardAmount, 'Completed ayeT-Studios offer');
+        await completeTask(dbUser.id, taskId);
+        await updateUser(dbUser);
+        console.log(`[ayeT-Studios Callback] Successfully credited ${rewardAmount} ORL to user ${userId} for transaction ${transactionId}`);
+      } else {
+        console.warn(`[ayeT-Studios Callback] Received invalid reward amount: ${amount}`);
+      }
+    } else {
+      console.warn(`[ayeT-Studios Callback] User ${userId} not found in database`);
+      return res.status(404).json({ error: 'User not found' });
+    }
+  } catch (dbErr) {
+    console.error('[ayeT-Studios Callback] Database error:', dbErr);
+    return res.status(500).json({ error: 'Database error' });
+  }
+
+  return res.json({ success: true, message: 'Reward verified and credited successfully' });
+});
+
 // Mount Routes (auth is applied as middleware, meaning initData is required)
 app.use('/api/user', verifyTelegramInitData, generalLimit, userRoutes);
 app.use('/api/mining', verifyTelegramInitData, generalLimit, actionLimit, miningRoutes);
