@@ -19,3 +19,19 @@
 .tg-gate h2 { font-family: var(--font-display); font-size: 24px; color: var(--cu-1); }
 .tg-gate p { font-size: 14px; color: var(--ink-mute); line-height: 1.6; max-width: 300px; }
 .tg-gate .tg-logo { width: 64px; height: 64px; color: var(--cu-1); }
+
+.tg-gate .gate-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; padding: 12px 24px; border-radius: var(--r-md);
+  background: var(--cu-2); color: #1c1109; font-weight: 700;
+  font-size: 14px; text-decoration: none; font-family: var(--font-display);
+  box-shadow: 0 4px 12px rgba(224,162,91,0.2); transition: all 0.2s ease;
+  margin-top: 10px;
+}
+.tg-gate .gate-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(224,162,91,0.35);
+}
+.tg-gate .gate-btn:active {
+  transform: translateY(0);
+}
