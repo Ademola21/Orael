@@ -663,10 +663,10 @@ export function render() {
   if (lottoMineEl) lottoMineEl.textContent = S.lottoTickets || 0;
 
   const lottoPoolEl = $('lottoPool');
-  if (lottoPoolEl && S.lottoPool) lottoPoolEl.textContent = fmtInt(S.lottoPool) + ' ORL';
+  if (lottoPoolEl) lottoPoolEl.textContent = fmtInt(S.lottoPool || 0) + ' ORL';
 
   const lottoPlayersEl = $('lottoPlayers');
-  if (lottoPlayersEl && S.lottoPlayers) lottoPlayersEl.textContent = fmtInt(S.lottoPlayers);
+  if (lottoPlayersEl) lottoPlayersEl.textContent = fmtInt(S.lottoPlayers || 0);
 
   // Referrals
   const refCountEl = $('refCount');
