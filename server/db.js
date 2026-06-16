@@ -58,6 +58,7 @@ export async function initDB() {
       ref_active      INTEGER DEFAULT 0,
       tier            INTEGER DEFAULT 1,
       country         TEXT,
+      banned          INTEGER DEFAULT 0,
       created_at      INTEGER,
       updated_at      INTEGER
     );
@@ -66,6 +67,13 @@ export async function initDB() {
   // Migration: Add country column if table already exists
   try {
     db.run("ALTER TABLE users ADD COLUMN country TEXT;");
+  } catch (e) {
+    // Column already exists or table doesn't exist yet (handled silently)
+  }
+
+  // Migration: Add banned column if table already exists
+  try {
+    db.run("ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0;");
   } catch (e) {
     // Column already exists or table doesn't exist yet (handled silently)
   }

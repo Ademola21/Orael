@@ -45,6 +45,16 @@ export async function api(path, options = {}) {
     });
 
     if (res.status === 403) {
+      const errBody = await res.clone().json().catch(() => ({}));
+      if (errBody && errBody.error === 'User is banned') {
+        const banGate = document.getElementById('ban-gate');
+        const tgGate = document.getElementById('tg-gate');
+        const appEl = document.querySelector('.app');
+        if (banGate) banGate.style.display = 'flex';
+        if (tgGate) tgGate.style.display = 'none';
+        if (appEl) appEl.style.display = 'none';
+        throw new Error('Account banned');
+      }
       showTelegramGate();
       throw new Error('Telegram-only access');
     }

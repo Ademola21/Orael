@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { getUser } from './db.js';
 
 /** Maximum age of auth_date before it's considered stale (24 h). */
 const MAX_AUTH_AGE_S = 86_400;
@@ -96,6 +97,12 @@ export default function verifyTelegramInitData(req, res, next) {
 
     if (!user || !user.id) {
       return res.status(403).json({ error: 'User object missing id' });
+    }
+
+    // Check if user is banned
+    const dbUser = getUser(user.id);
+    if (dbUser && dbUser.banned === 1) {
+      return res.status(403).json({ error: 'User is banned' });
     }
 
     // ── 11. Attach to request and continue ─────────────────────
